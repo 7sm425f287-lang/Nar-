@@ -9,7 +9,8 @@ start() {
     return
   fi
   echo "Starting uvicorn on port 8001..."
-  (cd "$ROOT" && uvicorn app:app --host 0.0.0.0 --port 8001 --reload &) 2>/dev/null
+  LOGFILE="$ROOT/.uvicorn.out"
+  (cd "$ROOT" && nohup uvicorn app:app --host 0.0.0.0 --port 8001 --reload > "$LOGFILE" 2>&1 &) 
   sleep 1
   pgrep -f "uvicorn app:app" | head -n1 > "$PIDFILE" || true
   echo "Started: $(cat $PIDFILE)"

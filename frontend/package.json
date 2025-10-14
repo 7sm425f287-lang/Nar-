@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:smoke": "node tests/health.test.js && node tests/chat.test.js"
   },
   "dependencies": {
     "react": "18.2.0",

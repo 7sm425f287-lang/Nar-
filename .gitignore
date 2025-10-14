@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+.venv/
+venv/
+env/
+*.py[cod]
+# Node
+node_modules/
+dist/
+build/
+# Env files
+.env
+.env.*
+# VSCode
+.vscode/
+# Logs
+*.log
+# Never write into memory folder
+/memory/
+backend/.env*
+memory/
+.DS_Store
+system/app/

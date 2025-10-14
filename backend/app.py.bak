@@ -1,0 +1,54 @@
+import os
+import requests
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+
+LLM_TARGET = os.getenv("NIRO_LLM", "lmstudio")  # "lmstudio" oder "openai"
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+
+app = FastAPI()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"], allow_methods=["*"], allow_headers=["*"]
+)
+
+@app.get("/health")
+def health():
+    return {"status": "ok"}
+
+@app.post("/chat")
+async def chat(request: Request):
+    body = await request.json()
+    user_message = body.get("message", "")
+    if not user_message:
+        return {"reply": "Leere Nachricht empfangen."}
+
+    try:
+        if LLM_TARGET == "lmstudio":
+            url = "http://localhost:1234/v1/chat/completions"
+            r = requests.post(url, json={
+                "messages": [{"role": "user", "content": user_message}],
+                "temperature": 0.5
+            }, timeout=30)
+            r.raise_for_status()
+            data = r.json()
+            return {"reply": data["choices"][0]["message"]["content"]}
+
+        elif LLM_TARGET == "openai":
+            if not OPENAI_API_KEY:
+                return {"reply": "OPENAI_API_KEY fehlt."}
+            url = "https://api.openai.com/v1/chat/completions"
+            headers = {"Authorization": f"Bearer {OPENAI_API_KEY}"}
+            r = requests.post(url, headers=headers, json={
+                "model": "gpt-4o-mini",
+                "messages": [{"role": "user", "content": user_message}],
+                "temperature": 0.5
+            }, timeout=30)
+            r.raise_for_status()
+            data = r.json()
+            return {"reply": data["choices"][0]["message"]["content"]}
+
+    except Exception as e:
+        return {"reply": f"(Fallback) Echo: {user_message}  | Hinweis: {e}"}
+
+    return {"reply": f"Unknown LLM target: {LLM_TARGET}"}

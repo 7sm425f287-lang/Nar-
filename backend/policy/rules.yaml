@@ -1,0 +1,12 @@
+default_profile: blueprint
+profiles:
+  blueprint:
+    deny_sources_glob: []
+    deny_patterns: []
+  healing:
+    deny_sources_glob: []
+    deny_patterns:
+      - "\\b(gewalt|hass|beleidig)\\w*\\b"
+  rammbock:
+    deny_sources_glob: []
+    deny_patterns: []

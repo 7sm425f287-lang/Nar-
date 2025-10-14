@@ -21,3 +21,11 @@ backend/.env*
 memory/
 .DS_Store
 system/app/
+
+# Drafts and generated art analysis
+drafts/
+
+# npm/yarn lockfiles and build artifacts
+package-lock.json
+yarn.lock
+

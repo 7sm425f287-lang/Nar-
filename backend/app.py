@@ -1,14 +1,31 @@
-from fastapi import FastAPI, HTTPException, Request
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from __future__ import annotations
+
+import logging
 import os
-from dotenv import load_dotenv
+from typing import Optional
+
 import httpx
+from dotenv import load_dotenv
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel, Field
 
-load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), '.env.local'))
-load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), '.env.cloud'))
 
-app = FastAPI()
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("backend")
+
+
+# Load env files permissively; individual variables decide behavior.
+ROOT = os.path.dirname(__file__)
+load_dotenv(os.path.join(ROOT, '.env.local'))
+load_dotenv(os.path.join(ROOT, '.env.cloud'))
+
+
+def get_env(key: str, default: Optional[str] = None) -> Optional[str]:
+    return os.getenv(key) or default
+
+
+app = FastAPI(title='nar-phi-backend')
 
 app.add_middleware(
     CORSMiddleware,
@@ -20,71 +37,112 @@ app.add_middleware(
 
 
 class ChatRequest(BaseModel):
-    message: str
+    message: str = Field(..., min_length=1)
 
 
 @app.get('/health')
 async def health():
-    return {"status": "ok"}
+    llm = (get_env('NIRO_LLM', 'openai') or 'openai').lower()
+    model = get_env('OPENAI_MODEL') if llm == 'openai' else get_env('LMSTUDIO_MODEL')
+    base = get_env('OPENAI_URL') if llm == 'openai' else get_env('LMSTUDIO_URL')
+    return {
+        'ok': True,
+        'llm': llm,
+        'model': model,
+        'base_url': base,
+    }
 
 
-def get_env(name: str, default: str = None) -> str:
-    return os.environ.get(name) or default
-
-
-async def call_openai(prompt: str):
+async def call_openai(prompt: str, timeout: int = 60) -> str:
     api_key = get_env('OPENAI_API_KEY')
     if not api_key:
         raise RuntimeError('OPENAI_API_KEY not set')
     url = get_env('OPENAI_URL', 'https://api.openai.com/v1/chat/completions')
-    model = get_env('OPENAI_MODEL', 'gpt-3.5-turbo')
-    headers = {'Authorization': f'Bearer {api_key}'}
+    model = get_env('OPENAI_MODEL', 'gpt-4o-mini')
+    headers = {
+        'Authorization': f'Bearer {api_key}',
+        'Content-Type': 'application/json'
+    }
+    openai_org = get_env('OPENAI_ORG') or get_env('OPENAI_ORGANIZATION')
+    openai_project = get_env('OPENAI_PROJECT')
+    if openai_org:
+        headers['OpenAI-Organization'] = openai_org
+    if openai_project:
+        headers['OpenAI-Project'] = openai_project
+
     payload = {
         'model': model,
         'messages': [{'role': 'user', 'content': prompt}],
     }
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        r = await client.post(url, json=payload, headers=headers)
-        r.raise_for_status()
-        data = r.json()
-        # Best-effort extraction
+    async with httpx.AsyncClient(timeout=timeout) as client:
+        resp = await client.post(url, json=payload, headers=headers)
+        resp.raise_for_status()
+        data = resp.json()
+        # Try common extraction paths
         try:
             return data['choices'][0]['message']['content']
         except Exception:
             return str(data)
 
 
-async def call_lmstudio(prompt: str):
-    url = get_env('LMSTUDIO_URL')
-    model = get_env('LMSTUDIO_MODEL', 'phi2')
-    if not url:
-        raise RuntimeError('LMSTUDIO_URL not set')
-    payload = {'model': model, 'prompt': prompt}
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        r = await client.post(url, json=payload)
-        r.raise_for_status()
-        data = r.json()
-        return data.get('output') or str(data)
+async def call_lmstudio(prompt: str, timeout: int = 120) -> str:
+    # Navigator: use local LM Studio endpoint and model from env
+    url = get_env('LMSTUDIO_URL', 'http://127.0.0.1:1234/v1/chat/completions')
+    model = get_env('LMSTUDIO_MODEL', get_env('LMSTUDIO_MODEL', 'local-model'))
+
+    # LM Studio has several API shapes; send a chat-like payload and accept multiple output forms.
+    payload = {
+        'model': model,
+        'messages': [{'role': 'user', 'content': prompt}],
+    }
+    async with httpx.AsyncClient(timeout=timeout) as client:
+        resp = await client.post(url, json=payload)
+        resp.raise_for_status()
+        data = resp.json()
+        # Try standard choices -> message path
+        if isinstance(data, dict):
+            if 'choices' in data:
+                try:
+                    return data['choices'][0]['message']['content']
+                except Exception:
+                    pass
+            # LM Studio sometimes returns {'output': '...'} or {'text': '...'}
+            for key in ('output', 'text', 'response'):
+                if key in data and isinstance(data[key], str):
+                    return data[key]
+        return str(data)
 
 
 @app.post('/chat')
 async def chat(req: ChatRequest):
-    niro = get_env('NIRO_LLM', 'openai')
+    # pydantic already enforces non-empty message; add explicit check for clarity
+    if not req.message or not req.message.strip():
+        raise HTTPException(status_code=400, detail='message must not be empty')
+
+    niro = (get_env('NIRO_LLM', 'openai') or 'openai').lower()
     try:
-        if niro.lower() == 'openai':
-            resp = await call_openai(req.message)
+        if niro == 'openai':
+            reply = await call_openai(req.message)
         else:
-            resp = await call_lmstudio(req.message)
-        return {'reply': resp}
+            reply = await call_lmstudio(req.message)
+        return {'reply': reply}
+
     except httpx.HTTPStatusError as e:
+        logger.error('Upstream HTTP error: %s', e)
         raise HTTPException(status_code=502, detail=f'Upstream error: {str(e)}')
+    except httpx.RequestError as e:
+        logger.error('Upstream request error: %s', e)
+        raise HTTPException(status_code=502, detail=f'Upstream request error: {str(e)}')
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f'Internal error: {str(e)}')
+        logger.exception('Unhandled error in /chat')
+        raise HTTPException(status_code=500, detail='Internal server error')
 
 
 if __name__ == '__main__':
     import uvicorn
-    uvicorn.run('app:app', host='0.0.0.0', port=8001, reload=True)
+
+    port = int(get_env('PORT', '8001'))
+    uvicorn.run('app:app', host='0.0.0.0', port=port, reload=True)
 from __future__ import annotations
 
 import os, time, json, re, uuid

@@ -1,3 +1,55 @@
+import React, { useState } from 'react'
+
+type Message = { role: 'user' | 'bot'; text: string }
+
+export default function App() {
+  const [messages, setMessages] = useState<Message[]>([])
+  const [input, setInput] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const send = async () => {
+    if (!input.trim()) return
+    const userMsg: Message = { role: 'user', text: input }
+    setMessages((m) => [...m, userMsg])
+    setInput('')
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: userMsg.text })
+      })
+      if (!res.ok) throw new Error(await res.text())
+      const data = await res.json()
+      setMessages((m) => [...m, { role: 'bot', text: data.reply }])
+    } catch (e: any) {
+      setError(e.message || String(e))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div style={{maxWidth:700,margin:'2rem auto',fontFamily:'sans-serif'}}>
+      <h1>Nar φ Chat</h1>
+      {error && <div style={{background:'#fee',padding:8,border:'1px solid #f99'}}>{error}</div>}
+      <div style={{minHeight:200,border:'1px solid #ddd',padding:12,marginTop:12}}>
+        {messages.map((m, i) => (
+          <div key={i} style={{textAlign: m.role === 'user' ? 'right' : 'left', margin:8}}>
+            <div style={{display:'inline-block',background:m.role==='user'?'#def':'#eee',padding:8,borderRadius:8}}>{m.text}</div>
+          </div>
+        ))}
+        {loading && <div>Loading…</div>}
+      </div>
+      <div style={{display:'flex',gap:8,marginTop:8}}>
+        <input value={input} onChange={(e)=>setInput(e.target.value)} style={{flex:1,padding:8}} onKeyDown={(e)=>{if(e.key==='Enter')send()}} />
+        <button onClick={send} disabled={loading} style={{padding:'8px 12px'}}>Send</button>
+      </div>
+    </div>
+  )
+}
 import { useState } from "react";
 
 function App() {

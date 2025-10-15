@@ -31,17 +31,21 @@ class OpenAIProvider(LLMProvider):
         if self._settings.openai_project:
             headers["OpenAI-Project"] = self._settings.openai_project
 
-        async with httpx.AsyncClient(timeout=self.timeout_seconds) as client:
-            response = await client.post(
-                f"{self._settings.openai_base_url}/chat/completions",
-                headers=headers,
-                json=payload,
-            )
+        timeout = httpx.Timeout(
+            timeout=self.timeout_seconds,
+            connect=self.timeout_seconds,
+            read=self.timeout_seconds,
+        )
 
-        if response.status_code >= 500:
-            raise UpstreamError(f"openai server error {response.status_code}")
-        if response.status_code >= 400:
-            raise UpstreamError(f"openai error {response.status_code}")
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            async def _post():
+                return await client.post(
+                    f"{self._settings.openai_base_url}/chat/completions",
+                    headers=headers,
+                    json=payload,
+                )
+
+            response = await self._send_with_retry(_post, provider="openai")
 
         data = response.json()
         self.last_usage = data.get("usage")
@@ -51,3 +55,4 @@ class OpenAIProvider(LLMProvider):
             return str(message).strip()
         except (KeyError, IndexError, TypeError) as exc:
             raise UpstreamError("openai response parsing failed") from exc
+

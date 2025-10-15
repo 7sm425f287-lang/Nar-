@@ -1,97 +1,100 @@
 #!/usr/bin/env bash
+
 set -euo pipefail
-ROOT="$(cd "$(dirname "$0")" && pwd)"
-PIDFILE="$ROOT/.uvicorn.pid"
+
+APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+VENV_DIR="${APP_DIR}/.venv"
+PID_FILE="${APP_DIR}/.uvicorn.pid"
+LOG_DIR="${APP_DIR}/logs"
+LOG_FILE="${LOG_DIR}/backend.log"
+
+if [ -z "${PYTHON_BIN:-}" ]; then
+  if command -v python3.12 >/dev/null 2>&1; then
+    PYTHON_BIN="python3.12"
+  else
+    PYTHON_BIN="python3"
+  fi
+fi
+UVICORN_BIN="${UVICORN_BIN:-uvicorn}"
+
+ensure_runtime() {
+  mkdir -p "${LOG_DIR}"
+  if [ ! -d "${VENV_DIR}" ]; then
+    "${PYTHON_BIN}" -m venv "${VENV_DIR}"
+  fi
+  # shellcheck source=/dev/null
+  source "${VENV_DIR}/bin/activate"
+  pip install --upgrade pip >/dev/null
+  pip install -r "${APP_DIR}/requirements.txt" >/dev/null
+}
+
+is_running() {
+  if [ -f "${PID_FILE}" ]; then
+    local pid
+    pid="$(cat "${PID_FILE}")"
+    if ps -p "${pid}" >/dev/null 2>&1; then
+      return 0
+    fi
+  fi
+  return 1
+}
 
 start() {
-  if [ -f "$PIDFILE" ] && kill -0 "$(cat $PIDFILE)" 2>/dev/null; then
-    echo "Already running with PID $(cat $PIDFILE)"
-    return
+  if is_running; then
+    echo "Backend already running (PID $(cat "${PID_FILE}"))."
+    exit 0
   fi
-  echo "Starting uvicorn on port 8001..."
-  LOGFILE="$ROOT/.uvicorn.out"
-  (cd "$ROOT" && nohup uvicorn app:app --host 0.0.0.0 --port 8001 --reload > "$LOGFILE" 2>&1 &) 
+  ensure_runtime
+  # shellcheck source=/dev/null
+  source "${VENV_DIR}/bin/activate"
+  echo "Starting backend on http://127.0.0.1:8001 ..."
+  nohup "${VENV_DIR}/bin/${UVICORN_BIN}" --app-dir "${APP_DIR}/.." backend.app:app --host 0.0.0.0 --port 8001 >"${LOG_FILE}" 2>&1 &
+  echo $! > "${PID_FILE}"
   sleep 1
-  pgrep -f "uvicorn app:app" | head -n1 > "$PIDFILE" || true
-  echo "Started: $(cat $PIDFILE)"
+  echo "Started (PID $(cat "${PID_FILE}")). Logs: ${LOG_FILE}"
 }
 
 stop() {
-  if [ -f "$PIDFILE" ]; then
-    pid=$(cat "$PIDFILE")
-    echo "Stopping $pid"
-    kill "$pid" || true
-    rm -f "$PIDFILE"
-  else
-    echo "Not running (no PID file)"
+  if ! is_running; then
+    echo "Backend not running."
+    exit 0
   fi
+  local pid
+  pid="$(cat "${PID_FILE}")"
+  echo "Stopping backend (PID ${pid})..."
+  kill "${pid}" >/dev/null 2>&1 || true
+  rm -f "${PID_FILE}"
+  echo "Stopped."
 }
 
 status() {
-  if [ -f "$PIDFILE" ] && kill -0 "$(cat $PIDFILE)" 2>/dev/null; then
-    echo "Running: $(cat $PIDFILE)"
+  if is_running; then
+    echo "Backend running (PID $(cat "${PID_FILE}"))."
   else
-    echo "Not running"
+    echo "Backend not running."
   fi
 }
 
 logs() {
-  echo "No centralized logs configured. See uvicorn output above when running in foreground."
+  mkdir -p "${LOG_DIR}"
+  touch "${LOG_FILE}"
+  tail -f "${LOG_FILE}"
 }
 
-case ${1-} in
-  start) start ;; 
-  stop) stop ;; 
-  status) status ;; 
-  logs) logs ;; 
-  *) echo "Usage: $0 {start|stop|status|logs}" ;; 
-esac
-#!/usr/bin/env bash
-set -euo pipefail
-
-APP="app:app"
-HOST="0.0.0.0"
-PORT="${PORT:-8001}"
-LOG_LEVEL="${LOG_LEVEL:-info}"
-PIDFILE=".uvicorn.pid"
-
-start() {
-  if [ -f "$PIDFILE" ] && kill -0 "$(cat "$PIDFILE")" 2>/dev/null; then
-    echo "Already running (PID $(cat "$PIDFILE"))"; exit 0
-  fi
-  echo "Starting uvicorn on :$PORT"
-  nohup .venv/bin/uvicorn "$APP" --host "$HOST" --port "$PORT" --log-level "$LOG_LEVEL" --reload > .uvicorn.out 2>&1 &
-  echo $! > "$PIDFILE"
-  sleep 1
-  status
+usage() {
+  cat <<EOF
+Usage: $(basename "$0") <start|stop|status|logs>
+EOF
 }
 
-stop() {
-  if [ -f "$PIDFILE" ]; then
-    kill "$(cat "$PIDFILE")" 2>/dev/null || true
-    rm -f "$PIDFILE"
-    echo "Stopped."
-  else
-    echo "Not running."
-  fi
-}
-
-status() {
-  if [ -f "$PIDFILE" ] && kill -0 "$(cat "$PIDFILE")" 2>/dev/null; then
-    echo "Running (PID $(cat "$PIDFILE"))", port $PORT
-  else
-    echo "Not running."
-  fi
-}
-
-logs() {
-  tail -n 200 -f .uvicorn.out
-}
-
-case "${1:-}" in
+command="${1:-}"
+case "${command}" in
   start) start ;;
   stop) stop ;;
   status) status ;;
   logs) logs ;;
-  *) echo "Usage: $0 {start|stop|status|logs}"; exit 1 ;;
+  *)
+    usage
+    exit 1
+    ;;
 esac

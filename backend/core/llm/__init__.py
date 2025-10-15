@@ -1,34 +1,31 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Any, Awaitable, Callable, Dict, Optional
+from functools import lru_cache
+
+from ..config import Settings
+from .base import ConfigurationError, LLMProvider, UpstreamError, format_messages
+from .lmstudio_provider import LMStudioProvider
+from .mock_provider import MockProvider
+from .openai_provider import OpenAIProvider
 
 
-@dataclass
-class Provider:
-    """Simple provider interface for LLM adapters.
-
-    call: async callable (message, settings) -> str
-    """
-
-    name: str
-    call: Callable[[str, Any], Awaitable[str]]
+__all__ = [
+    "ConfigurationError",
+    "LLMProvider",
+    "UpstreamError",
+    "format_messages",
+    "get_provider",
+]
 
 
-class Registry:
-    def __init__(self) -> None:
-        self._providers: Dict[str, Provider] = {}
-
-    def register(self, provider: Provider) -> None:
-        self._providers[provider.name] = provider
-
-    def get(self, name: str) -> Optional[Provider]:
-        return self._providers.get(name)
-
-
-# Note: adapters for different provider method names (generate vs call)
-# can be provided by wrapping callables with small async wrappers where used.
-
-
-registry = Registry()
+@lru_cache(maxsize=16)
+def get_provider(name: str, settings: Settings) -> LLMProvider:
+    key = name.lower()
+    if key == "openai":
+        return OpenAIProvider(settings)
+    if key == "lmstudio":
+        return LMStudioProvider(settings)
+    if key == "mock":
+        return MockProvider()
+    raise ConfigurationError(f"Unsupported LLM provider '{name}'")
 

@@ -1,0 +1,42 @@
+---
+topic: "{{ topic }}"
+scope: "{{ scope }}"
+time_focus: "{{ time_focus }}"
+created_at: "{{ created_at }}"
+{% if must_include %}must_include:
+{% for item in must_include %}  - "{{ item }}"
+{% endfor %}{% else %}must_include: []
+{% endif %}{% if must_exclude %}must_exclude:
+{% for item in must_exclude %}  - "{{ item }}"
+{% endfor %}{% else %}must_exclude: []
+{% endif %}
+---
+
+# Titel: {{ title }}
+
+## Zusammenfassung
+> Platzhalter: Fasse die wichtigsten Erkenntnisse in ≤150 Wörtern zusammen.
+
+## Stichpunkt-Muster
+- TODO: Muster 1
+- TODO: Muster 2
+- TODO: Muster 3
+
+## Details
+1. **Methodik & Such-Queries**
+   - queries: {{ queries }}
+   - Vorgehen: kurz beschreiben
+
+2. **Befunde (geordnet)**
+   - Punkt A: Quelle(n) & Kernaussage
+   - Punkt B: Quelle(n) & Kernaussage
+
+3. **Muster & Hypothesen**
+   - Trend 1: Begründung + Quellen
+
+4. **Unsicherheiten & Gegenstimmen**
+   - Strittiger Punkt: Abwägung
+
+## Quellen
+- [1] Platzhalter — Autor — Publisher — Datum — URL — Abrufdatum — Qualitätsnotiz
+

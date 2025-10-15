@@ -1,57 +1,116 @@
-# Nar φ — Local dev
+# Nar φ Local Dev Stack
 
-This repository was reorganized for a local dev experience (DOER charter). Key points:
+End-to-end workspace for the Nar φ conversation stack (FastAPI backend + Vite/React frontend). The repo is organised for local work only; publishing is intentionally disabled.
 
-Assumptions
-- You are running locally on macOS with zsh.
-- Python 3.11+ and Node 18+ are available.
-- LM Studio (local) is available at LMSTUDIO_URL in `backend/.env.local` if using NIRO_LLM=lmstudio.
-- OpenAI keys go into `backend/.env.cloud` when NIRO_LLM=openai. Never commit secrets.
+## Quick Start
 
-Setup
-1. Backend: create a virtualenv and install requirements
-
-   python -m venv .venv
-   source .venv/bin/activate
-   pip install -r backend/requirements.txt
-
-2. Frontend: install node deps
-
+1. **Clone & prepare**
+   ```bash
+   cd ~/ϕ/Nar ϕ
+   ```
+2. **Backend (Python 3.12+)**
+   ```bash
+   python3.12 -m venv backend/.venv
+   backend/.venv/bin/pip install -r backend/requirements.txt
+   backend/dev.sh start
+   ```
+   - Logs stream to `backend/logs/backend.log`.
+   - `backend/dev.sh stop|status|logs` manage the process.
+3. **Frontend (Node 18+)**
+   ```bash
    cd frontend
    npm install
+   npm run dev
+   ```
+   - Vite serves on http://localhost:5173 and proxies `/api/*` → `http://localhost:8001/*`.
+4. Open the app at http://localhost:5173 and chat.
 
-Start (development)
-- Start backend: cd backend && ./dev.sh start
-- Start frontend: cd frontend && npm run dev
+## Backend Overview
+- Framework: FastAPI (`backend/app.py`).
+- Endpoints:
+  - `GET /health` → `{ "status": "ok", "env": "local|cloud", "provider": "lmstudio|openai" }`
+  - `POST /chat` → `{ "reply": string, "provider": string }`
+- Error handling:
+  - 400 when the message body is empty.
+  - 502 for upstream failures (OpenAI / LM Studio / timeout).
+  - 500 for configuration issues or unexpected errors.
+- Logging: structured INFO logs via `logging` module; runtime log file at `backend/logs/backend.log`.
+- Tests: `backend/.venv/bin/python -m pytest` (runs API + research suites).
 
-Stop
-- Backend: cd backend && ./dev.sh stop
+## Provider-Abstraktion
+- Provider-Auswahl erfolgt über `NIRO_LLM` (`openai`, `lmstudio`, `mock`); kein Code-Change nötig.
+- Requests laufen über modulare Provider (`backend/core/llm/*`) mit Timeouts (10 s connect/read) und bis zu zwei Retries bei 429/5xx.
+- Pro `/chat` wird eine `request_id` vergeben (Header `X-Request-ID` & Response-Feld) und Laufzeit/Tokens werden geloggt.
+- Standard-Metriken landen in `backend/core/observability.py` (`chat.success`, `chat.error`, `chat.latency`).
 
-Switching modes
-- To use OpenAI: set NIRO_LLM=openai and add OPENAI_API_KEY to `backend/.env.cloud`.
-- To use LM Studio (local): set NIRO_LLM=lmstudio in `backend/.env.local` and ensure LMSTUDIO_URL is reachable.
+### `.env.local` Beispiel
+```env
+NIRO_ENV=local
+NIRO_LLM=lmstudio
+LMSTUDIO_BASE_URL=http://localhost:1234
+MODEL_NAME=qwen2.5:7b-instruct
+NIRO_TIMEOUT=10
+NIRO_RETRY_ATTEMPTS=2
+```
 
-Troubleshooting
-- Ports: backend runs on 8001, frontend on 5173. Ensure nothing else uses them.
-- CORS: backend allows origin http://localhost:5173. Change in `backend/app.py` if needed.
-- Proxy: frontend vite proxies /api to the backend. If CORS issues persist, open devtools to inspect.
+### `.env.cloud` Beispiel
+```env
+NIRO_ENV=cloud
+NIRO_LLM=openai
+OPENAI_API_KEY=sk-...
+OPENAI_ORG=your-org
+OPENAI_PROJECT=your-project
+MODEL_NAME=gpt-4o-mini
+NIRO_TIMEOUT=10
+NIRO_RETRY_ATTEMPTS=2
+```
 
-Running tests (local)
-- Backend tests (pytest):
-   1. Create and activate Python venv in repo root: `python -m venv .venv && source .venv/bin/activate`
-   2. Install requirements: `pip install -r backend/requirements.txt pytest pytest-asyncio httpx`
-   3. Run: `pytest backend/tests -q`
+## Frontend Overview
+- Stack: Vite + React + TypeScript (`frontend/`).
+- Health check runs on mount; connection status is shown in the header.
+- Chat UI supports history, loading indicator (“Thinking…” bubble), and error banner feedback.
+- Build/test:
+  ```bash
+  cd frontend
+  npm run build     # type-check + production build
+  ```
 
-- Frontend smoke tests (node):
-   1. Start backend (`cd backend && ./dev.sh start`)
-   2. In another terminal: `cd frontend && npm install` then `npm run test:smoke`
+## Environment Modes
+Two environment profiles live next to the backend code:
 
-Logs
-- Backend uvicorn stdout/stderr: `backend/.uvicorn.out` (created by `backend/dev.sh start`).
-- If the backend refuses to start, inspect the .uvicorn.out file.
+| Mode | File | Purpose | Key vars |
+|------|------|---------|----------|
+| Local (default) | `backend/.env.local` (create from `.env.local.example`) | LM Studio or mock replies | `NIRO_ENV=local`, `NIRO_LLM=lmstudio`, `LMSTUDIO_BASE_URL`, `MODEL_NAME` |
+| Cloud | `backend/.env.cloud` (copy from `.env.cloud.example`) | OpenAI via REST | `NIRO_ENV=cloud`, `NIRO_LLM=openai`, `OPENAI_API_KEY`, `OPENAI_ORG`, `OPENAI_PROJECT`, `MODEL_NAME` |
 
-If test runner tools here report missing packages, install dependencies locally as above — this environment doesn't run installs automatically.
+Switching profile:
+1. Duplicate the matching `*.example` file and remove the `.example` suffix.
+2. Adjust secrets / URLs.
+3. Restart the backend (`backend/dev.sh stop && backend/dev.sh start`).
 
-Safety
-- memory/ is read-only and must not be written by any process.
-- .gitignore excludes env files, node_modules, .venv, and dist.
+The backend auto-loads the profile indicated by `NIRO_ENV` (defaults to `local` if unset). You can override provider choice with `NIRO_LLM` at runtime.
+For offline smoke tests or CI you can set `NIRO_LLM=mock` to use the built-in echo provider.
+
+
+## Troubleshooting
+- **Python version**: Pydantic requires Python ≤3.13. Use `python3.12` (the dev script auto-detects it) to avoid build failures.
+- **Ports busy**: backend uses 8001, frontend 5173. Free the ports or update `dev.sh` / `vite.config.ts`.
+- **CORS / fetch errors**: ensure you access the UI from `http://localhost:5173`. CORS is limited to that origin.
+- **502 errors**: check provider credentials (`LMSTUDIO_BASE_URL` or `OPENAI_API_KEY`). The backend logs the upstream detail before returning 502.
+- **Health check fails**: `backend/dev.sh logs` tails the latest server output; verify env files exist and contain the expected keys.
+
+## Assumptions
+- Local machine provides Python 3.12+ and Node 18+ with npm.
+- LM Studio (or compatible OpenAI API) is reachable from localhost when enabled.
+- `.env.local` / `.env.cloud` will be created by the operator; example files are provided but not committed.
+- Guardrails: `memory/`, `system/`, and `zettel/` remain read-only.
+- Legacy snapshots are preserved in `archive/` (e.g. `archive/backend-legacy-20251015/`).
+
+## Logs & Notes
+Progress for this restructuring is recorded in:
+- `logs/inventory-2025-10-15.md`
+- `logs/backend-2025-10-15.md`
+- `logs/frontend-2025-10-15.md`
+- `logs/devcomfort-2025-10-15.md`
+
+Smoke-test results will be captured in `logs/smoke-2025-10-15.md` once executed.

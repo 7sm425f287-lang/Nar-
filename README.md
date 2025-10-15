@@ -91,6 +91,12 @@ Switching profile:
 The backend auto-loads the profile indicated by `NIRO_ENV` (defaults to `local` if unset). You can override provider choice with `NIRO_LLM` at runtime.
 For offline smoke tests or CI you can set `NIRO_LLM=mock` to use the built-in echo provider.
 
+## Research-Modus
+- Generator: `python3 system/research/generate.py --in system/research/examples/example.yaml --out drafts/research/`
+- Vorlagen: `system/research/templates/report.md.j2`
+- Output: `drafts/research/<slug>-<YYYYMMDD>.md` mit vorbereiteten Sektionen (Zusammenfassung, Muster, Unsicherheiten, Quellen).
+- Tests: `backend/.venv/bin/python -m pytest system/tests`
+
 
 ## Troubleshooting
 - **Python version**: Pydantic requires Python ≤3.13. Use `python3.12` (the dev script auto-detects it) to avoid build failures.

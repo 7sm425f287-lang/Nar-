@@ -1,4 +1,10 @@
-body { margin: 0; font-family: system-ui, Helvetica, Arial, sans-serif; }
+@import './styles/fonts.css';
+@import './styles/theme.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+html,body,#root{ height:100%; }
+body{ margin:0; font-family: Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial; background-color:var(--color-paper); color:var(--color-umbra); }
+h1,h2,h3{ font-family: Cormorant Garamond, Georgia, serif; }

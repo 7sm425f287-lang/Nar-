@@ -1,0 +1,6 @@
+# Placeholder for research feeds
+# Add entries as:
+# - id: unique-name
+#   description: what the feed covers
+#   interval: daily|weekly|monthly
+#   source: path or url (local preferred)

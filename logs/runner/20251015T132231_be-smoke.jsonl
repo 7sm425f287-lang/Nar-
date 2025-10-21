@@ -1,0 +1,2 @@
+{"ts": "2025-10-15T13:22:31.754749+00:00", "event": "start", "task_id": "backend-smoke", "slug": "be-smoke"}
+{"ts": "2025-10-15T13:22:31.755139+00:00", "event": "exec", "cmd": "backend/.venv/bin/pytest backend/tests/test_health.py -q", "cwd": "backend"}

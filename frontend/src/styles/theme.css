@@ -1,0 +1,53 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* BASE – ruhige Typo, erdiger Grundton */
+@layer base {
+  html, body {
+    @apply bg-earth-paper text-earth-rauch font-serif antialiased;
+  }
+}
+
+/* UTILITIES – organische Imperfektion: Papier & feines Korn */
+@layer utilities {
+  /* Papierstruktur: feines „Deckblatt“ */
+  .texture-paper {
+    background-image:
+      radial-gradient(rgba(0,0,0,0.025) 0.5px, transparent 0.5px),
+      linear-gradient(0deg, rgba(255,255,255,0.6), rgba(255,255,255,0.6));
+    background-size: 6px 6px, auto;
+    background-blend-mode: multiply;
+  }
+
+  /* Subtiles Korn (sehr zurückhaltend) – nutzt dither mit CSS-Noise */
+  .texture-grain {
+    position: relative;
+    isolation: isolate;
+  }
+  .texture-grain::after {
+    content: "";
+    position: absolute; inset: 0;
+    pointer-events: none; z-index: -1; /* liegt hinterm Inhalt */
+    background-image:
+      radial-gradient(rgba(0,0,0,0.03) 0.75px, transparent 0.75px),
+      radial-gradient(rgba(0,0,0,0.02) 0.5px, transparent 0.5px);
+    background-size: 5px 5px, 7px 7px;
+    mix-blend-mode: multiply;
+  }
+
+  /* Sanfte Rahmen & Schatten */
+  .card-soft { @apply rounded-softer shadow-soft bg-earth-stein/40 backdrop-blur-[1px]; }
+  .bubble { @apply rounded-soft shadow-soft px-4 py-3 animation-rise; }
+
+  /* Farbrollen: warme Akzente, tiefe Flächen */
+  .ink        { @apply text-earth-umbra; }
+  .accent     { @apply text-earth-ocker; }
+  .surface    { @apply bg-earth-stein/60; }
+  .surface-deep { @apply bg-earth-wald/90 text-earth-stein; }
+
+  /* Bewegung, die atmet */
+  .calm { @apply transition-all duration-calm ease-out; }
+  .fade-in { @apply animate-fade; }
+  .rise-in { @apply animate-rise; }
+}

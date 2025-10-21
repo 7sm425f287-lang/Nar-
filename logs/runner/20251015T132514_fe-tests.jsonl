@@ -1,0 +1,4 @@
+{"ts": "2025-10-15T13:25:14.774319+00:00", "event": "start", "task_id": "frontend-tests", "slug": "fe-tests"}
+{"ts": "2025-10-15T13:25:14.775120+00:00", "event": "exec", "cmd": "npm run test -- --runTestsByPath tests/health.test.js --watch=false", "cwd": "frontend"}
+{"ts": "2025-10-15T13:25:14.874334+00:00", "event": "rc", "cmd": "npm run test -- --runTestsByPath tests/health.test.js --watch=false", "rc": 1}
+{"ts": "2025-10-15T13:25:14.874397+00:00", "event": "end", "status": "fail"}

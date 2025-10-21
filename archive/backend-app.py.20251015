@@ -1,0 +1,204 @@
+"""Unified FastAPI backend for Nar φ
+
+Provides /health and /chat endpoints with simple MODE-based switching between
+local mock, LM Studio, and OpenAI. Loads `.env.local` and `.env.cloud` if present.
+"""
+
+from __future__ import annotations
+
+import logging
+import os
+from typing import Optional
+
+try:
+    from dotenv import load_dotenv  # type: ignore
+except Exception:
+    def load_dotenv(*args, **kwargs):
+        return False
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("backend")
+
+# Load env files if present. Make dotenv optional so fallback server can run
+ROOT = os.path.dirname(__file__)
+try:
+    load_dotenv
+except NameError:
+    try:
+        from dotenv import load_dotenv  # type: ignore
+    except Exception:
+        def load_dotenv(*args, **kwargs):
+            return False
+
+load_dotenv(os.path.join(ROOT, ".env.cloud"), override=False)
+load_dotenv(os.path.join(ROOT, ".env.local"), override=True)
+
+
+def get_env(key: str, default: Optional[str] = None) -> Optional[str]:
+    return os.getenv(key) or default
+
+
+# Try to import FastAPI and related libs. If unavailable (e.g. during dev
+# on systems where pydantic-core can't be built), fall back to a tiny
+# builtin HTTP server for smoke testing. The module will always expose
+# a variable `app` when FastAPI is available; otherwise, running the
+# file directly starts the fallback HTTP server.
+HAVE_FASTAPI = True
+try:
+    import httpx
+    from fastapi import FastAPI, HTTPException
+    from fastapi.middleware.cors import CORSMiddleware
+    from pydantic import BaseModel, Field
+
+    app = FastAPI(title="nar-phi-backend")
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["http://localhost:5173"],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
+
+    class HealthResp(BaseModel):
+        ok: bool
+        llm: Optional[str] = None
+        model: Optional[str] = None
+        base_url: Optional[str] = None
+
+
+    class ChatRequest(BaseModel):
+        message: str = Field(..., min_length=1)
+
+
+    @app.get("/health", response_model=HealthResp)
+    async def health():
+        niro = (get_env("NIRO_LLM", "openai") or "openai").lower()
+        model = get_env("OPENAI_MODEL") if niro == "openai" else get_env("LMSTUDIO_MODEL")
+        base = get_env("OPENAI_URL") if niro == "openai" else get_env("LMSTUDIO_URL")
+        return {"ok": True, "llm": niro, "model": model, "base_url": base}
+
+
+    async def call_openai(prompt: str, timeout: int = 60) -> str:
+        api_key = get_env("OPENAI_API_KEY")
+        if not api_key:
+            raise RuntimeError("OPENAI_API_KEY not set")
+        url = get_env("OPENAI_URL", "https://api.openai.com/v1/chat/completions")
+        model = get_env("OPENAI_MODEL", get_env("MODEL_NAME", "gpt-4o-mini"))
+        headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+        openai_org = get_env("OPENAI_ORG") or get_env("OPENAI_ORGANIZATION")
+        openai_project = get_env("OPENAI_PROJECT")
+        if openai_org:
+            headers["OpenAI-Organization"] = openai_org
+        if openai_project:
+            headers["OpenAI-Project"] = openai_project
+
+        payload = {"model": model, "messages": [{"role": "user", "content": prompt}]}
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            resp = await client.post(url, json=payload, headers=headers)
+            resp.raise_for_status()
+            data = resp.json()
+            try:
+                return data["choices"][0]["message"]["content"]
+            except Exception:
+                return str(data)
+
+
+    async def call_lmstudio(prompt: str, timeout: int = 120) -> str:
+        url = get_env("LMSTUDIO_URL", "http://127.0.0.1:1234/v1/chat/completions")
+        model = get_env("LMSTUDIO_MODEL", get_env("MODEL_NAME", "local-model"))
+        payload = {"model": model, "messages": [{"role": "user", "content": prompt}]}
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            resp = await client.post(url, json=payload)
+            resp.raise_for_status()
+            data = resp.json()
+            if isinstance(data, dict):
+                if "choices" in data:
+                    try:
+                        return data["choices"][0]["message"]["content"]
+                    except Exception:
+                        pass
+                for key in ("output", "text", "response"):
+                    if key in data and isinstance(data[key], str):
+                        return data[key]
+            return str(data)
+
+
+    @app.post("/chat")
+    async def chat(req: ChatRequest):
+        if not req.message or not req.message.strip():
+            raise HTTPException(status_code=400, detail="message must not be empty")
+
+        niro = (get_env("NIRO_LLM", "openai") or "openai").lower()
+        try:
+            if niro == "openai":
+                reply = await call_openai(req.message)
+            elif niro == "lmstudio":
+                reply = await call_lmstudio(req.message)
+            else:
+                reply = f"(mock reply) Echo: {req.message}"
+            return {"reply": reply}
+
+        except httpx.HTTPStatusError as e:
+            logger.error("Upstream HTTP error: %s", e)
+            raise HTTPException(status_code=502, detail=f"Upstream error: {str(e)}")
+        except httpx.RequestError as e:
+            logger.error("Upstream request error: %s", e)
+            raise HTTPException(status_code=502, detail=f"Upstream request error: {str(e)}")
+        except Exception as e:
+            logger.exception("Unhandled error in /chat")
+            raise HTTPException(status_code=500, detail="Internal server error")
+
+except Exception:
+    HAVE_FASTAPI = False
+    logger.warning("FastAPI or dependencies not available; fallback HTTP server will be used when running directly.")
+
+
+def _fallback_response(path: str, body: Optional[str] = None):
+    if path == "/health":
+        return 200, {"Content-Type": "application/json"}, '{"status":"ok"}'
+    if path == "/chat":
+        # body expected to be JSON with {"message": "..."}
+        try:
+            import json
+            payload = json.loads(body or "{}")
+            msg = payload.get("message", "")
+            if not msg or not msg.strip():
+                return 400, {"Content-Type": "application/json"}, '{"detail":"message must not be empty"}'
+            return 200, {"Content-Type": "application/json"}, json.dumps({"reply": f"(mock reply) Echo: {msg}"})
+        except Exception:
+            return 400, {"Content-Type": "application/json"}, '{"detail":"bad request"}'
+    return 404, {"Content-Type": "application/json"}, '{"detail":"not found"}'
+
+
+if __name__ == "__main__":
+    # start fallback simple HTTP server to allow smoke testing without
+    # installing all dependencies. This server is lightweight and meant
+    # for local development only.
+    from http.server import BaseHTTPRequestHandler, HTTPServer
+    import json
+
+
+    class _Handler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            status, headers, data = _fallback_response(self.path)
+            self.send_response(status)
+            for k, v in headers.items():
+                self.send_header(k, v)
+            self.end_headers()
+            self.wfile.write(data.encode())
+
+        def do_POST(self):
+            length = int(self.headers.get('Content-Length', '0'))
+            body = self.rfile.read(length).decode() if length else ''
+            status, headers, data = _fallback_response(self.path, body)
+            self.send_response(status)
+            for k, v in headers.items():
+                self.send_header(k, v)
+            self.end_headers()
+            self.wfile.write(data.encode())
+
+    port = int(get_env("PORT", "8001") or 8001)
+    print(f"Fallback HTTP server running on http://0.0.0.0:{port}")
+    HTTPServer(("0.0.0.0", port), _Handler).serve_forever()
+

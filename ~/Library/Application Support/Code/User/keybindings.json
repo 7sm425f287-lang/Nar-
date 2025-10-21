@@ -1,0 +1,9 @@
+[
+  { "key": "cmd+alt+b", "command": "workbench.action.tasks.runTask", "args": "Backend: start (local LM Studio)" },
+  { "key": "cmd+alt+g", "command": "workbench.action.tasks.runTask", "args": "Backend: start (cloud OpenAI)" },
+  { "key": "cmd+alt+s", "command": "workbench.action.tasks.runTask", "args": "Backend: stop" },
+  { "key": "cmd+alt+f", "command": "workbench.action.tasks.runTask", "args": "Frontend: dev (Vite 5173)" },
+  { "key": "cmd+alt+d", "command": "workbench.action.tasks.runTask", "args": "Dev: Desktop (App-Fenster)" },
+  { "key": "cmd+alt+l", "command": "workbench.action.tasks.runTask", "args": "Backend: logs (follow)" },
+  { "key": "cmd+alt+p", "command": "workbench.action.tasks.runTask", "args": "LM Studio: ping" }
+]

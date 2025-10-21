@@ -1,4 +1,4 @@
-const http = require('http')
+import http from 'node:http'
 
 const options = { hostname: 'localhost', port: 8001, path: '/health', method: 'GET' }
 

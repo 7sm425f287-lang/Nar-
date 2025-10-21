@@ -1,0 +1,4 @@
+{"ts": "2025-10-15T15:49:47.232793Z", "event": "start", "task_id": "fe-smoke", "slug": "fe-smoke"}
+{"ts": "2025-10-15T15:49:47.233879Z", "event": "exec", "cmd": "npm run test:smoke", "cwd": "frontend"}
+{"ts": "2025-10-15T15:49:47.550004Z", "event": "rc", "cmd": "npm run test:smoke", "rc": 0}
+{"ts": "2025-10-15T15:49:47.550056Z", "event": "end", "status": "ok"}

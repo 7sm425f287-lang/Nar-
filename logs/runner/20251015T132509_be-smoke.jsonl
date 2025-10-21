@@ -1,0 +1,4 @@
+{"ts": "2025-10-15T13:25:09.468469+00:00", "event": "start", "task_id": "backend-smoke", "slug": "be-smoke"}
+{"ts": "2025-10-15T13:25:09.468594+00:00", "event": "exec", "cmd": "backend/.venv/bin/python -m pytest backend/tests/test_health.py -q", "cwd": "/Users/kunzt.freiheit/Documents/\u03d5/Nar \u03d5"}
+{"ts": "2025-10-15T13:25:09.817269+00:00", "event": "rc", "cmd": "backend/.venv/bin/python -m pytest backend/tests/test_health.py -q", "rc": 0}
+{"ts": "2025-10-15T13:25:09.817316+00:00", "event": "end", "status": "ok"}

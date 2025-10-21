@@ -1,0 +1,106 @@
+version: 1
+updated: 2025-10-15
+
+active_modules:
+  - id: resonanzkern_v1
+    name: Resonanzkern (persistente Denk-/Spiegel-Instanz)
+    status: active
+    reason: Läuft lokal, zieht Kontext aus Logs/Plans/State und antwortet resonant.
+  - id: adaptive_modi
+    name: Duktusgesteuerte Modi (Sprint/Research/Reflexion/Komposition)
+    status: active
+    reason: Stilabhängige Antwortlogik aktiv, keine zusätzliche Infrastruktur nötig.
+  - id: langzeit_kontext_loader
+    name: Langzeit-Kontext Loader
+    status: active
+    reason: Lädt memory/state.yaml, logs/status-*, drafts/plan-*, system/ bei jedem Start.
+  - id: chronik_template
+    name: Chronik-Template & Logging
+    status: active
+    reason: Chronik-Vorlage, Index und Aktivitätslogs sind vorhanden und in Benutzung.
+  - id: editor_fs
+    name: Monaco-Editor + FS-Whitelist + Autosave
+    status: active
+    reason: Frontend/Backend implementiert, Tests grün, Autosave mit Debounce aktiv.
+  - id: denker_instanz
+    name: Denker-Instanz (Meta-Kohärenz)
+    status: active
+    reason: Verarbeitet lokale Chroniken und Modelle, erstellt Kohärenzanalysen.
+  - id: kulturfeld_prompt
+    name: Kultur-/Kosmos-Resonanz
+    status: active
+    reason: Liest lokale Notizen zur Social- und Kosmos-Resonanz, kein Webzugriff nötig.
+  - id: klangkontext
+    name: Musikalische Resonanz-Instanz
+    status: active
+    reason: Berät zu Klangästhetik und Technik auf Basis lokaler Texte und Konzepte.
+
+planned_modules:
+  - id: langzeit_recherche
+    name: Langzeit-Recherche-Instanz
+    status: planned
+    prerequisites:
+      - create: memory/research/
+      - optional: system/feeds.yaml
+    reason: Cycle-1/2 Snapshots vorhanden; wartet auf memory/research/ Container & optionale Feeds.
+  - id: traum_symbol_interpreter
+    name: Traum- & Symbol-Interpreter
+    status: planned
+    prerequisites:
+      - input: logs/traum/
+    reason: Braucht regelmäßige Traum- oder Voice-to-Text-Eingaben.
+  - id: klang_frequenz_archiv
+    name: Klang-Frequenz-Archiv
+    status: planned
+    prerequisites:
+      - audio_inputs: stems/refs mit Metadaten
+    reason: Audio-Drops und Formatdefinition noch offen.
+  - id: dialog_chronik_gegensaetze
+    name: Dialog-Chronik Hermes <-> Thoth
+    status: planned
+    prerequisites:
+      - schema: logs/dialoge/YYYY-*.md
+    reason: Benötigt Journal-Format für Ratio/Intuition-Spiegel.
+  - id: resonanz_oekonomie
+    name: Resonanz-Ökonomie
+    status: planned
+    prerequisites:
+      - tracking: drafts/energy-log.csv oder YAML
+    reason: Energiefluss-Log noch zu definieren.
+  - id: mythopoetischer_kalender
+    name: Mythopoetischer Kalender
+    status: planned
+    prerequisites:
+      - ruleset: system/calendars.yaml
+    reason: Mapping-Regeln und Kalenderdatei fehlen.
+  - id: lyrische_evolution
+    name: Lyrische Epochenkarten
+    status: planned
+    prerequisites:
+      - corpus: memory/lyrics/ (read-only Sammlung)
+    reason: Textkorpus muss konsolidiert werden.
+  - id: ethik_simulation
+    name: Ethik-Simulations-Modul
+    status: planned
+    prerequisites:
+      - principles: system/principles.md
+      - cases: drafts/cases/*.md
+    reason: Prinzipien- und Fallbasis erforderlich.
+  - id: publikum_resonanz_radar
+    name: Publikums-Resonanz-Radar
+    status: planned
+    prerequisites:
+      - feedback: drafts/feedback/*.csv
+    reason: Benötigt anonymisierte Feedback-Daten.
+  - id: heilige_routine
+    name: Heilige Routine
+    status: planned
+    prerequisites:
+      - tracker: drafts/routine-log.yaml
+    reason: Regelmäßiger Tages-Tracker fehlt.
+  - id: archiv_ungesagte_saetze
+    name: Archiv der ungesagten Sätze
+    status: planned
+    prerequisites:
+      - fragments: drafts/fragments/
+    reason: Sammelpfad und Review-Rhythmus einzurichten.

@@ -4,7 +4,7 @@ import argparse
 import datetime as dt
 import re
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, cast
 
 import yaml
 from jinja2 import Environment, FileSystemLoader, select_autoescape
@@ -27,7 +27,7 @@ def load_payload(path: Path) -> Dict[str, Any]:
     for key in ("topic", "scope", "time_focus"):
         if not data.get(key):
             raise ValueError(f"Missing required field '{key}'")
-    return data
+    return cast(Dict[str, Any], data)
 
 
 def render_report(context: Dict[str, Any]) -> str:
@@ -45,9 +45,9 @@ def generate_report(input_yaml: Path, output_dir: Path) -> Path:
     payload = load_payload(input_yaml)
     created_at = dt.date.today().isoformat()
     title = payload.get("title") or payload["topic"]
-    must_include = payload.get("must_include") or []
-    must_exclude = payload.get("must_exclude") or []
-    queries = payload.get("queries") or []
+    must_include = cast(list[str], payload.get("must_include") or [])
+    must_exclude = cast(list[str], payload.get("must_exclude") or [])
+    queries = cast(list[Dict[str, Any]], payload.get("queries") or [])
 
     context = {
         "topic": payload["topic"],
@@ -96,4 +96,3 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

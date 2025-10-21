@@ -1,0 +1,4 @@
+{"ts": "2025-10-15T13:25:12.988421+00:00", "event": "start", "task_id": "frontend-build", "slug": "fe-build"}
+{"ts": "2025-10-15T13:25:12.989076+00:00", "event": "exec", "cmd": "npm run build", "cwd": "frontend"}
+{"ts": "2025-10-15T13:25:13.765791+00:00", "event": "rc", "cmd": "npm run build", "rc": 0}
+{"ts": "2025-10-15T13:25:13.765870+00:00", "event": "end", "status": "ok"}

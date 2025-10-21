@@ -1,0 +1,2 @@
+{"ts": "2025-10-15T15:42:22.616605Z", "event": "start", "task_id": "be-suite", "slug": "be-suite"}
+{"ts": "2025-10-15T15:42:22.616759Z", "event": "exec", "cmd": "backend/.venv/bin/python -m pytest -q", "cwd": "backend"}

@@ -1,0 +1,23 @@
+/* Self-hosted font declarations (uncomment and provide .woff2 files in public/fonts/) */
+/*
+@font-face {
+  font-family: 'CormorantGaramondLocal';
+  src: url('/fonts/CormorantGaramond-Variable.woff2') format('woff2');
+  font-weight: 300 800;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'InterLocal';
+  src: url('/fonts/Inter-Variable.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  --font-serif: 'CormorantGaramondLocal', Cormorant Garamond, Georgia, serif;
+  --font-ui: 'InterLocal', Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
+}
+*/

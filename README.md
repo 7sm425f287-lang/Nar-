@@ -51,6 +51,7 @@ LMSTUDIO_BASE_URL=http://localhost:1234
 MODEL_NAME=qwen2.5:7b-instruct
 NIRO_TIMEOUT=10
 NIRO_RETRY_ATTEMPTS=2
+EDITOR_FS_WHITELIST=logs:drafts:atlas
 ```
 
 ### `.env.cloud` Beispiel
@@ -63,6 +64,7 @@ OPENAI_PROJECT=your-project
 MODEL_NAME=gpt-4o-mini
 NIRO_TIMEOUT=10
 NIRO_RETRY_ATTEMPTS=2
+# EDITOR_FS_WHITELIST=logs:drafts:atlas
 ```
 
 ## Frontend Overview
@@ -97,6 +99,32 @@ For offline smoke tests or CI you can set `NIRO_LLM=mock` to use the built-in ec
 - Output: `drafts/research/<slug>-<YYYYMMDD>.md` mit vorbereiteten Sektionen (Zusammenfassung, Muster, Unsicherheiten, Quellen).
 - Tests: `backend/.venv/bin/python -m pytest system/tests`
 
+## Wissensarchitektur & Editor
+- Schreib-Trichter: Neue Inhalte entstehen in `logs/` (Chroniken, Status) und `drafts/` (Modelle, Muster, Social/Music Notes); kuratierte Wahrheiten wandern nach Review nach `atlas/`.  
+- `memory/` bleibt read-only; der Editor hat über `EDITOR_FS_WHITELIST=logs:drafts:atlas` Zugriff auf alle bearbeitbaren Pfade.  
+- `logs/indexes/insights.yaml` hält aktuelle Chronik- und Draft-Verweise für zyklische Reviews.  
+- Autosave im Editor (Debounce ~1.5 s) schreibt über `/api/fs/write`; Status wird unten im Editor angezeigt („Gespeichert um …“).
+- Chronik-Wizard (`/chronik`): erzeugt Einträge via Vorlage (Fallback integriert), legt Dateien unter `logs/chronik/YYYY-MM-DD-<slug>.md` an und verlinkt zurück in den Editor.
+
+### Chronik-Wizard (Schritt für Schritt)
+1. `/chronik` öffnen, Titel eingeben (Slug wird automatisch abgeleitet, kann überschrieben werden).
+2. Template wählen – Standard (Mikro + Makro), Mikro (Kurzimpuls) oder Makro-Longform.
+3. Zeitfenster, Ort, Stimmung sowie Notizen/Links ergänzen.
+4. „Chronik erstellen“ klick – speichert via `/api/fs/write` nach `logs/chronik/<datum>-<slug>.md`.
+5. Snackbar-Button nutzen („Im Editor öffnen“), um direkt weiterzuschreiben.
+
+## Dev-Modus (ϕ schreibt & testet)
+- Befehls-Whitelist: `DEV_CMD_WHITELIST`
+- Dateisystem-Zugriff: `EDITOR_FS_WHITELIST`
+- Endpoints / Verträge: `backend/core/dev/contracts.md`
+- Logs: `logs/jobs/` (Job-Output) sowie `logs/status-YYYY-MM-DD.md`
+- Dev-Konsole: `/dev` (Run/Lint/History – aktuell Placeholder)
+
+## Chat Robustness
+- Jeder Prompt läuft mit 30 s Timeout und Exponential Backoff (300/900/1500 ms) – Request-Abbruch über den „Stop“-Button.  
+- Netzfehler liefern eine klare Meldung inkl. Request-ID; Server-Logs landen in `logs/server-app.log`.  
+- Streaming-Simulation zeigt eingehende Antworten Schritt für Schritt und blendet die gemessene Latenz ein.
+
 
 ## Troubleshooting
 - **Python version**: Pydantic requires Python ≤3.13. Use `python3.12` (the dev script auto-detects it) to avoid build failures.
@@ -120,3 +148,21 @@ Progress for this restructuring is recorded in:
 - `logs/devcomfort-2025-10-15.md`
 
 Smoke-test results will be captured in `logs/smoke-2025-10-15.md` once executed.
+
+## VS Code Konsole (Niro)
+
+1) Workspace öffnen:
+   `code niro.code-workspace`
+
+2) Entwicklungsstart:
+   - Dev: Frontend + Backend (local) → CMD+ALT+F (Frontend) + CMD+ALT+B (Backend)
+   - Desktop-App (Electron) → CMD+ALT+D (startet Backend+Frontend+Electron)
+
+3) Online/Offline:
+   - Offline (LM Studio): VS Code Task „Backend: start (local LM Studio)“
+   - Online (OpenAI): VS Code Task „Backend: start (cloud OpenAI)“
+   Keys liegen in `backend/.env.*` (nicht ins Frontend packen).
+
+4) Stoppen/Logs:
+   - Stop: CMD+ALT+S → `./dev.sh stop`
+   - Logs: CMD+ALT+L → `./dev.sh logs`

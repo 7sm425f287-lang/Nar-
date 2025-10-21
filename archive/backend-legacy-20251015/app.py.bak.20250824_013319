@@ -1,0 +1,239 @@
+from __future__ import annotations
+
+import os, time, json, re, uuid
+from pathlib import Path
+from typing import List, Dict, Any, Optional
+
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel, Field
+from dotenv import load_dotenv
+import httpx, yaml
+
+APP_START = time.time()
+ROOT = Path(__file__).resolve().parent
+REPO_ROOT = ROOT.parent
+
+# -------- ENV selection --------
+llm_mode = os.getenv("NIRO_LLM", "openai").strip().lower()
+env_file = ".env.cloud" if llm_mode == "openai" else ".env.local"
+load_dotenv(ROOT / env_file, override=True)
+override_env = os.getenv("NIRO_ENV_FILE")
+if override_env and Path(override_env).exists():
+    load_dotenv(override_env, override=True)
+
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "lm-studio")
+OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL", None)
+NIRO_MODEL = os.getenv("NIRO_MODEL", "gpt-4o-mini" if llm_mode == "openai" else "local-model")
+LMSTUDIO_BASE_URL = os.getenv("LMSTUDIO_BASE_URL", "http://localhost:1234/v1")
+if llm_mode == "lmstudio" and not OPENAI_BASE_URL:
+    OPENAI_BASE_URL = LMSTUDIO_BASE_URL
+
+OPENAI_ORG = os.getenv("OPENAI_ORG_ID") or os.getenv("OPENAI_ORGANIZATION")
+OPENAI_PROJECT = os.getenv("OPENAI_PROJECT")
+
+def chat_complete(messages: List[Dict[str, str]], temperature: float = 0.2, timeout_s: int = 60) -> str:
+    base = OPENAI_BASE_URL or "https://api.openai.com/v1"
+    url = f"{base}/chat/completions"
+    headers = {"Content-Type": "application/json", "Authorization": f"Bearer {OPENAI_API_KEY}"}
+    if OPENAI_ORG: headers["OpenAI-Organization"] = OPENAI_ORG
+    if OPENAI_PROJECT: headers["OpenAI-Project"] = OPENAI_PROJECT
+    payload = {"model": NIRO_MODEL, "messages": messages, "temperature": temperature}
+    try:
+        with httpx.Client(timeout=timeout_s) as client:
+            r = client.post(url, headers=headers, json=payload)
+            r.raise_for_status()
+            data = r.json()
+            return data["choices"][0]["message"]["content"]
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"LLM error: {e}")
+
+# -------- Simple JSONL index (BM25) --------
+INDEX_DIR = ROOT / "db"
+INDEX_DIR.mkdir(parents=True, exist_ok=True)
+INDEX_JSONL = INDEX_DIR / "index.jsonl"
+
+def iter_jsonl(path: Path):
+    if not path.exists(): return
+    with path.open("r", encoding="utf-8") as f:
+        for line in f:
+            line=line.strip()
+            if not line: continue
+            yield json.loads(line)
+
+def write_jsonl(path: Path, rows: List[Dict[str, Any]]):
+    with path.open("a", encoding="utf-8") as f:
+        for row in rows:
+            f.write(json.dumps(row, ensure_ascii=False) + "\n")
+
+def _chunk_text(txt: str, chunk_size: int = 800, overlap: int = 100) -> List[str]:
+    txt = re.sub(r"\s+", " ", txt).strip()
+    if not txt: return []
+    chunks = []; i = 0
+    while i < len(txt):
+        chunks.append(txt[i:i+chunk_size])
+        i += chunk_size - overlap
+    return chunks
+
+def _extract_pdf_text(pdf_path: Path) -> str:
+    try:
+        from pypdf import PdfReader
+        reader = PdfReader(str(pdf_path))
+        return "\n".join((p.extract_text() or "") for p in reader.pages)
+    except Exception:
+        return ""
+
+def ingest_dir(src_dir: Path) -> Dict[str, Any]:
+    if not src_dir.exists():
+        return {"added": 0, "skipped": 0, "reason": "dir_missing"}
+    existing = set(r.get("id") for r in iter_jsonl(INDEX_JSONL) or [])
+    added = skipped = 0
+    new_rows: List[Dict[str, Any]] = []
+    for p in src_dir.rglob("*"):
+        if p.is_dir(): continue
+        if p.suffix.lower() not in {".pdf", ".txt"}: continue
+        try:
+            text = _extract_pdf_text(p) if p.suffix.lower()==".pdf" else p.read_text(encoding="utf-8", errors="ignore")
+        except Exception:
+            skipped += 1; continue
+        for i, chunk in enumerate(_chunk_text(text)):
+            doc_id = uuid.uuid4().hex
+            if doc_id in existing: skipped += 1; continue
+            new_rows.append({"id": doc_id, "text": chunk, "meta": {"source": str(p), "chunk": i}})
+            added += 1
+    if new_rows: write_jsonl(INDEX_JSONL, new_rows)
+    return {"added": added, "skipped": skipped, "index_path": str(INDEX_JSONL)}
+
+from rank_bm25 import BM25Okapi
+class BM25Index:
+    def __init__(self, rows: List[Dict[str, Any]]):
+        self.rows = rows
+        self.corpus = [r["text"].split() for r in rows]
+        self.bm25 = BM25Okapi(self.corpus)
+    def search(self, query: str, k: int = 5) -> List[Dict[str, Any]]:
+        scores = self.bm25.get_scores(query.split())
+        order = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)[:k]
+        out = []
+        for i in order:
+            r = dict(self.rows[i]); r["score"] = float(scores[i]); out.append(r)
+        return out
+
+def load_bm25() -> Optional[BM25Index]:
+    rows = [r for r in iter_jsonl(INDEX_JSONL)] or []
+    return BM25Index(rows) if rows else None
+
+# -------- Policy --------
+POLICY_DIR = ROOT / "policy"
+POLICY_DIR.mkdir(parents=True, exist_ok=True)
+RULES_YAML = POLICY_DIR / "rules.yaml"
+DEFAULT_RULES = {
+    "profiles": {
+        "blueprint": {"deny_sources_glob": [], "deny_patterns": []},
+        "healing":   {"deny_sources_glob": [], "deny_patterns": [r"\b(gewalt|hass|beleidig)\w*\b"]},
+        "rammbock":  {"deny_sources_glob": [], "deny_patterns": []},
+    },
+    "default_profile": "blueprint",
+}
+def ensure_rules():
+    if not RULES_YAML.exists():
+        RULES_YAML.write_text(yaml.safe_dump(DEFAULT_RULES, sort_keys=False), encoding="utf-8")
+def load_rules() -> Dict[str, Any]:
+    ensure_rules()
+    return yaml.safe_load(RULES_YAML.read_text(encoding="utf-8"))
+def apply_policy(hits: List[Dict[str, Any]], profile: str) -> Dict[str, Any]:
+    rules = load_rules()
+    prof = rules.get("profiles", {}).get(profile, {})
+    deny_glob = prof.get("deny_sources_glob", []) or []
+    deny_patterns = [re.compile(p, re.I) for p in (prof.get("deny_patterns", []) or [])]
+    import fnmatch
+    filtered, dropped = [], []
+    for h in hits:
+        src = (h.get("meta") or {}).get("source","")
+        txt = h.get("text","")
+        if any(fnmatch.fnmatch(src, g) for g in deny_glob) or any(p.search(txt) for p in deny_patterns):
+            dropped.append(h)
+        else:
+            filtered.append(h)
+    return {"hits": filtered, "dropped": dropped, "profile": profile, "policy_applied": bool(dropped)}
+
+# -------- API --------
+app = FastAPI(title="niro-chat-app", version="0.2.0")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"], allow_credentials=True,
+    allow_methods=["*"], allow_headers=["*"],
+)
+
+class ChatIn(BaseModel):
+    message: str = Field(min_length=1, max_length=8000)
+    system: Optional[str] = None
+    temperature: Optional[float] = 0.3
+
+class ChatOut(BaseModel):
+    reply: str; model: str; llm: str
+
+class IngestIn(BaseModel):
+    path: Optional[str] = None  # default to ../memory/pdf_texts
+
+class IngestOut(BaseModel):
+    added: int; skipped: int; index_path: Optional[str] = None
+
+class AskIn(BaseModel):
+    query: str; k: int = 5; profile: Optional[str] = None
+
+class Hit(BaseModel):
+    text: str; score: float; source: str; chunk: int
+
+class AskOut(BaseModel):
+    answer: str; hits: List[Hit]; profile: str; policy_applied: bool
+
+@app.get("/health")
+def health():
+    return {
+        "ok": True,
+        "uptime_s": round(time.time() - APP_START, 2),
+        "llm": llm_mode, "model": NIRO_MODEL,
+        "base_url": OPENAI_BASE_URL or "openai_default",
+        "env_file": (".env.cloud" if llm_mode=="openai" else ".env.local"),
+    }
+
+@app.post("/chat", response_model=ChatOut)
+def chat(body: ChatIn):
+    msgs = [{"role":"user","content": body.message}]
+    if body.system: msgs.insert(0, {"role":"system","content": body.system})
+    reply = chat_complete(msgs, temperature=body.temperature or 0.3, timeout_s=60 if llm_mode=="openai" else 120)
+    return ChatOut(reply=reply, model=NIRO_MODEL, llm=llm_mode)
+
+@app.post("/ingest", response_model=IngestOut)
+def ingest(body: IngestIn):
+    default_dir = (REPO_ROOT / "memory" / "pdf_texts")
+    src = Path(body.path) if body.path else default_dir
+    res = ingest_dir(src)
+    return IngestOut(**{k:v for k,v in res.items() if k in {"added","skipped","index_path"}})
+
+@app.post("/ask", response_model=AskOut)
+def ask(body: AskIn):
+    idx = load_bm25()
+    if not idx:
+        raise HTTPException(400, "Index empty. Call /ingest first.")
+    raw_hits = idx.search(body.query, k=max(1, min(body.k, 10)))
+    profile = body.profile or load_rules().get("default_profile","blueprint")
+    pol = apply_policy(raw_hits, profile=profile)
+    filtered = pol["hits"]
+    # Build context
+    ctx_parts = []
+    for h in filtered[:3]:
+        src = (h.get("meta") or {}).get("source","")
+        ctx_parts.append(f"[{src}] {h['text']}")
+    context = "\n\n".join(ctx_parts) if ctx_parts else "Keine Quellen gefunden."
+    system = "Beantworte präzise nur anhand des Kontextes. Keine erfundenen Quellen."
+    user = f"Frage: {body.query}\n\nKontext:\n{context}\n\nAntworte auf Deutsch."
+    answer = chat_complete(
+        [{"role":"system","content":system},{"role":"user","content":user}],
+        temperature=0.1, timeout_s=60 if llm_mode=="openai" else 120
+    )
+    hits_api = []
+    for h in filtered:
+        meta = h.get("meta") or {}
+        hits_api.append(Hit(text=h["text"], score=float(h["score"]), source=str(meta.get("source","")), chunk=int(meta.get("chunk",0))))
+    return AskOut(answer=answer, hits=hits_api, profile=profile, policy_applied=bool(pol["policy_applied"]))

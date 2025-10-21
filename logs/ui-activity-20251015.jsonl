@@ -1,0 +1,6 @@
+{"ts": "2025-10-15T10:06:18.631798Z", "event": "chronik_wizard_open", "path": "logs/chronik", "template": "standard", "source": "builder-cli"}
+{"ts": "2025-10-15T10:07:10.446989+00:00", "event": "chronik_wizard_create", "path": "logs/chronik", "template": "standard", "status": "success"}
+{"ts": "2025-10-15T10:07:33.402658+00:00", "event": "chronik_wizard_create", "path": "logs/chronik", "template": "standard", "status": "success"}
+{"ts": "2025-10-15T10:08:14.803478+00:00", "event": "chronik_wizard_template_switch", "path": "logs/chronik", "template": "mikro", "source": "builder-cli"}
+{"ts": "2025-10-15T10:10:26.294794+00:00", "event": "chronik_wizard_template_switch", "path": "logs/chronik", "template": "mikro", "source": "builder-cli"}
+{"ts": "2025-10-15T10:10:47.338081+00:00", "event": "chronik_wizard_open", "path": "logs/chronik", "template": "standard", "source": "builder-cli"}

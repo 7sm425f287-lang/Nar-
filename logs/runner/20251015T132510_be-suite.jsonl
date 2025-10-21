@@ -1,0 +1,4 @@
+{"ts": "2025-10-15T13:25:10.825259+00:00", "event": "start", "task_id": "backend-suite", "slug": "be-suite"}
+{"ts": "2025-10-15T13:25:10.825741+00:00", "event": "exec", "cmd": "backend/.venv/bin/python -m pytest -q", "cwd": "/Users/kunzt.freiheit/Documents/\u03d5/Nar \u03d5"}
+{"ts": "2025-10-15T13:25:11.979811+00:00", "event": "rc", "cmd": "backend/.venv/bin/python -m pytest -q", "rc": 1}
+{"ts": "2025-10-15T13:25:11.979866+00:00", "event": "end", "status": "fail"}

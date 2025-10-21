@@ -1,0 +1,43 @@
+{
+  "name": "niro-chat-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "main": "dist/electron-main.js",
+  "scripts": {
+    "dev": "concurrently -k -n FRONTEND,BACKEND,ELECTRON -c cyan,magenta,green \"cd ../frontend && npm run dev\" \"cd ../backend && ./dev.sh start\" \"wait-on tcp:5173 && vite-node --watch electron-main.ts\"",
+    "start": "electron dist/electron-main.js",
+    "build": "rimraf dist && tsc && cp -R icons dist/icons",
+    "pack": "npm run build && electron-builder --dir",
+    "dist": "npm run build && electron-builder"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.30",
+    "concurrently": "^8.2.2",
+    "electron": "^30.0.0",
+    "electron-builder": "^24.13.3",
+    "rimraf": "^5.0.5",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.4.5",
+    "vite-node": "^1.6.0",
+    "wait-on": "^7.0.1"
+  },
+  "dependencies": {},
+  "build": {
+    "appId": "dev.niro.chat",
+    "productName": "Niro Chat",
+    "files": ["dist/**"],
+    "mac": {
+      "category": "public.app-category.productivity",
+      "target": "dmg",
+      "icon": "icons/app.png"
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "icons/app.png"
+    },
+    "linux": {
+      "target": "AppImage",
+      "icon": "icons/app.png"
+    }
+  }
+}

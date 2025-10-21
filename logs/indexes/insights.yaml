@@ -1,0 +1,24 @@
+version: 2025-10-15
+entries:
+  chronik:
+    - id: workspace-editor
+      path: logs/chronik/2025-10-15-workspace-editor.md
+      tags: [fs, governance, resonance]
+    - id: erste-echo
+      path: logs/chronik/2025-10-15-erste-echo.md
+      tags: [resonanz, kippmoment, poetik]
+    - id: integration
+      path: logs/chronik/2025-10-15-integration.md
+      tags: [integration, module, struktur]
+  drafts:
+    - id: models-readme
+      path: drafts/models/README.md
+      tags: [models, workflow]
+    - id: patterns-readme
+      path: drafts/patterns/README.md
+      tags: [patterns, workflow]
+  atlas:
+    - id: ordnung-als-resonanzverstaerker
+      path: atlas/muster.md#ordnung-als-resonanzverstärker-2025-10-21
+      tags: [muster, resonanz, struktur]
+      promoted_from: drafts/patterns/ordnung-als-resonanzverstaerker-20251015.md

@@ -1,0 +1,2 @@
+{"ts": "2025-10-15T13:20:31.973232+00:00", "event": "start", "task_id": "backend-smoke", "slug": "be-smoke"}
+{"ts": "2025-10-15T13:20:31.973369+00:00", "event": "exec", "cmd": "pytest backend/tests/test_health.py -q", "cwd": "backend"}

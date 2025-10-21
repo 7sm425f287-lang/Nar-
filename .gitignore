@@ -8,6 +8,8 @@ env/
 node_modules/
 dist/
 build/
+/desktop/node_modules/
+/desktop/dist/
 # Env files
 .env
 .env.*
@@ -15,6 +17,7 @@ build/
 .vscode/
 # Logs
 *.log
+**/*.log
 # Never write into memory folder
 /memory/
 backend/.env*
@@ -28,4 +31,3 @@ drafts/
 # npm/yarn lockfiles and build artifacts
 package-lock.json
 yarn.lock
-

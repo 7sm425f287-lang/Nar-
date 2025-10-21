@@ -1,0 +1,29 @@
+{
+  "folders": [
+    { "path": "." },
+    { "path": "backend" },
+    { "path": "frontend" },
+    { "path": "desktop", "name": "desktop (optional)" }
+  ],
+  "settings": {
+    "editor.formatOnSave": true,
+    "files.exclude": {
+      "**/.venv": true,
+      "**/__pycache__": true,
+      "**/node_modules": true,
+      "backend/logs/**": true,
+      "**/.pytest_cache": true
+    },
+    "terminal.integrated.defaultProfile.osx": "zsh",
+    "task.quickOpen.default": "Dev: Desktop (App-Fenster)"
+  },
+  "extensions": {
+    "recommendations": [
+      "ms-python.python",
+      "ms-python.vscode-pylance",
+      "ms-vscode.vscode-typescript-next",
+      "esbenp.prettier-vscode",
+      "ms-vscode.js-debug-nightly"
+    ]
+  }
+}

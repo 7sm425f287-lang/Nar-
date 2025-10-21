@@ -7,6 +7,12 @@ VENV_DIR="${APP_DIR}/.venv"
 PID_FILE="${APP_DIR}/.uvicorn.pid"
 LOG_DIR="${APP_DIR}/logs"
 LOG_FILE="${LOG_DIR}/backend.log"
+ENV_FILE=""
+
+if [[ "${1:-}" == .env.* ]]; then
+  ENV_FILE="${1}"
+  shift
+fi
 
 if [ -z "${PYTHON_BIN:-}" ]; then
   if command -v python3.12 >/dev/null 2>&1; then
@@ -28,6 +34,29 @@ ensure_runtime() {
   pip install -r "${APP_DIR}/requirements.txt" >/dev/null
 }
 
+load_env() {
+  local candidate
+  if [[ -n "${ENV_FILE}" ]]; then
+    candidate="${APP_DIR}/${ENV_FILE}"
+    if [[ -f "${candidate}" ]]; then
+      set -a
+      # shellcheck source=/dev/null
+      source "${candidate}"
+      set +a
+      return
+    fi
+  fi
+  for candidate in "${APP_DIR}/.env.local" "${APP_DIR}/.env"; do
+    if [[ -f "${candidate}" ]]; then
+      set -a
+      # shellcheck source=/dev/null
+      source "${candidate}"
+      set +a
+      break
+    fi
+  done
+}
+
 is_running() {
   if [ -f "${PID_FILE}" ]; then
     local pid
@@ -44,11 +73,13 @@ start() {
     echo "Backend already running (PID $(cat "${PID_FILE}"))."
     exit 0
   fi
+  load_env
   ensure_runtime
   # shellcheck source=/dev/null
   source "${VENV_DIR}/bin/activate"
-  echo "Starting backend on http://127.0.0.1:8001 ..."
-  nohup "${VENV_DIR}/bin/${UVICORN_BIN}" --app-dir "${APP_DIR}/.." backend.app:app --host 0.0.0.0 --port 8001 >"${LOG_FILE}" 2>&1 &
+  local port="${PORT:-8001}"
+  echo "Starting backend on http://127.0.0.1:${port} ..."
+  nohup "${VENV_DIR}/bin/${UVICORN_BIN}" --app-dir "${APP_DIR}/.." backend.app:app --host 0.0.0.0 --port "${port}" >"${LOG_FILE}" 2>&1 &
   echo $! > "${PID_FILE}"
   sleep 1
   echo "Started (PID $(cat "${PID_FILE}")). Logs: ${LOG_FILE}"
@@ -83,7 +114,7 @@ logs() {
 
 usage() {
   cat <<EOF
-Usage: $(basename "$0") <start|stop|status|logs>
+Usage: $(basename "$0") [env-file] <start|stop|status|logs>
 EOF
 }
 

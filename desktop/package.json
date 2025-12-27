@@ -4,8 +4,8 @@
   "private": true,
   "main": "dist/electron-main.js",
   "scripts": {
-    "dev": "concurrently -k -n FRONTEND,BACKEND,ELECTRON -c cyan,magenta,green \"cd ../frontend && npm run dev\" \"cd ../backend && ./dev.sh start\" \"wait-on tcp:5173 && vite-node --watch electron-main.ts\"",
-    "start": "electron dist/electron-main.js",
+    "dev": "concurrently -k -n FRONTEND,BACKEND,ELECTRON -c cyan,magenta,green \"cd ../frontend && npm run dev\" \"./scripts/dev-backend.sh\" \"wait-on tcp:5173 && ELECTRON_RUN_AS_NODE=0 electron -r ts-node/register/transpile-only ./electron-main.ts\"",
+    "start": "ELECTRON_RUN_AS_NODE=0 electron dist/electron-main.js",
     "build": "rimraf dist && tsc && cp -R icons dist/icons",
     "pack": "npm run build && electron-builder --dir",
     "dist": "npm run build && electron-builder"

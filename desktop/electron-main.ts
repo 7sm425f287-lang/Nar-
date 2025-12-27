@@ -1,6 +1,7 @@
 import { app, BrowserWindow, nativeImage, ipcMain } from "electron";
 import * as path from "node:path";
 import { spawn } from "node:child_process";
+import { existsSync } from "node:fs";
 
 const isDev = !app.isPackaged;
 let backendProc: ReturnType<typeof spawn> | null = null;
@@ -30,6 +31,9 @@ function startBackend() {
 function createWindow() {
   const iconPath = path.join(__dirname, "icons", "app.png");
   const icon = nativeImage.createFromPath(iconPath);
+  const preloadJs = path.join(__dirname, "preload.js");
+  const preloadTs = path.join(__dirname, "preload.ts");
+  const preloadPath = existsSync(preloadJs) ? preloadJs : preloadTs;
 
   const win = new BrowserWindow({
     width: 1100,
@@ -37,7 +41,7 @@ function createWindow() {
     title: "Niro Chat",
     icon,
     webPreferences: {
-      preload: path.join(__dirname, "preload.js")
+      preload: preloadPath
     }
   });
 

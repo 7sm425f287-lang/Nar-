@@ -1,35 +1,35 @@
 # Copilot Instructions — Nar φ (Niro)
 
-## Quick summary ✅
-- Backend: FastAPI app at `backend/app.py` (uvicorn `backend.app:app`). Main responsibilities: LLM proxy (`/chat`), simple FS editor APIs (`/api/fs/*`), and developer job endpoints (`/api/dev/*`).
-- Frontend: Vite React app (port 5173) with `frontend/src/lib/backend.ts` handling backend URL resolution and proxying to `/api`.
-- LLM providers live under `backend/core/llm` — `lmstudio`, `openai`, and `mock`. Provider selection is via env var `NIRO_LLM` (defaults: local→`lmstudio`, cloud→`openai`, test→`mock`).
+## TL;DR (What matters most) ✅
+- Backend: FastAPI service at `backend/app.py` (uvicorn `backend.app:app`). Key responsibilities: `/chat` LLM proxy, simple FS editor APIs (`/api/fs/*`), and developer job endpoints (`/api/dev/*`).
+- Frontend: Vite React app (port 5173). Backend URL resolution and `/api` proxying live in `frontend/src/lib/backend.ts` (UI expects a single JSON reply; streaming is client-simulated).
+- LLM providers: add implementations under `backend/core/llm/` (`lmstudio`, `openai`, `mock`). Provider selection is via `NIRO_LLM` and `get_settings()`.
 
 ---
 
-## Where to look (key files) 🔧
-- Backend entry & middleware: `backend/app.py` (request IDs, logging, FS whitelist, /chat handler)
-- LLM integration and retries: `backend/core/llm/*` (providers: `openai_provider.py`, `lmstudio_provider.py`, `mock_provider.py`, `base.py`)
-- Runtime configuration: `backend/core/config.py` (env var defaults and inference rules)
-- Developer job system: `backend/routes/dev.py`, `backend/services/job_runner.py` (DEV_MODE gating, command whitelist, logs)
-- Frontend integration: `frontend/src/lib/backend.ts`, `frontend/vite.config.ts`, `frontend/src/pages/ChatPage.tsx` (example usage of `/chat` and retry/backoff)
-- Dev tooling: `backend/dev.sh`, `.env.*` examples (see `backend/.env.cloud.example`)
+## Where to look (important files) 📁
+- Entry & middleware: `backend/app.py` (request ID injection, `FS_WHITELIST`, system prompt `PRINCIPLES_PROMPT`).
+- Config: `backend/core/config.py` (env inference, timeouts, provider defaults).
+- Providers: `backend/core/llm/*` (`openai_provider.py`, `lmstudio_provider.py`, `mock_provider.py`, `base.py`). Use `get_provider()` to wire new providers.
+- Dev jobs: `backend/routes/dev.py` and `backend/services/job_runner.py` (endpoints, queue, whitelist, job logs & metadata).
+- Observability: `backend/core/observability.py` (request IDs, in-memory metrics).
+- Policies & rules: `backend/policy/rules.yaml`.
+- Frontend examples: `frontend/src/pages/ChatPage.tsx`, `frontend/src/components/ChatFrame.tsx`.
+- Tests: `backend/tests/*` (see `test_providers.py`, `test_dev_jobs.py`).
 
 ---
 
-## How to run & debug (developer workflows) ▶️
-- Local dev (recommended):
-  - Start backend (inside `/backend`): `./dev.sh .env.local start` (alternatively pass `.env.cloud` for cloud mode)
-  - Start frontend (inside `/frontend`): `npm run dev` (or use workspace task `Dev: Frontend + Backend (local)`)
-  - Frontend dev server proxies `/api` → `http://localhost:8001`
-- Quick health check: `curl -s http://localhost:8001/health`
-- Chat example (JSON request):
+## Quick runbook 🔧
+- Start backend (local LM Studio):
+  - cd `backend` → `./dev.sh .env.local start` (use `.env.cloud` for OpenAI)
+  - stop/status/logs: `./dev.sh stop` / `./dev.sh status` / `./dev.sh logs`
+- Start frontend: cd `frontend` → `npm run dev` (or use workspace task `Dev: Frontend + Backend (local)`). Desktop: `desktop` → `npm run dev`.
+- Health check: `curl -s http://localhost:8001/health`
+- Chat example:
   - curl -X POST -H "Content-Type: application/json" -d '{"message":"Hello"}' http://localhost:8001/chat
-- Logs:
-  - Backend: `backend/logs/backend.log` and `logs/server-app.log`
-  - Jobs: `logs/jobs/*.log` and `logs/jobs/*.jsonl`
-- Tests:
-  - Backend: run `pytest -q` from repo root or `backend` directory. Tests assume env and will select `mock` provider for `test` env.
+- Useful workspace tasks: `Dev: Frontend + Backend (local)`, `Dev: Desktop (App-Fenster)`, `LM Studio: ping`.
+- Logs: server `logs/server-app.log`, backend `backend/logs/backend.log`, dev jobs `logs/jobs/*.log` and `logs/jobs/*.jsonl`.
+- Tests: `pytest -q` (tests use `mock` provider under `NIRO_ENV=test` and some tests set `DEV_MODE` in-process).
 
 ---
 
@@ -49,11 +49,13 @@ Notes:
 
 ---
 
-## Project-specific patterns & tips 💡
-- Provider selection is deterministic in code: `get_settings()` in `backend/core/config.py` decides provider without needing to change code. Use `NIRO_LLM` and `.env.*` to flip.
-- The frontend expects a single JSON reply (no streaming API in current providers). The UI simulates streaming by typing the reply client-side.
-- The job runner writes logs to `logs/jobs` and appends metadata to daily `.jsonl` files — useful for debugging CI/dev tasks.
-- Observability: request IDs are added to logs (`X-Request-ID` header). Use `logs/server-app.log` for correlating requests.
+## Project-specific patterns & conventions 🧭
+- Environment-driven behavior: `NIRO_ENV` selects `local|cloud|test`. Defaults: local→`lmstudio`, cloud→`openai`, test→`mock`.
+- FS access: `EDITOR_FS_WHITELIST` (relative to repo root; default `drafts`). `memory/` top-level is **forbidden** and per-file checks are enforced in `_resolve_fs_path`.
+- Dev job runner: gated by `DEV_MODE`; commands restricted by `DEV_CMD_WHITELIST` and arguments validated by a strict regex (`ARG_TOKEN_RE`). Job logs and metadata are written under `logs/jobs`.
+- Observability: request ID (`X-Request-ID`) injected per request; check `logs/server-app.log` and `backend/core/observability.py` for metric collection.
+- Response shape: providers return a single text reply—frontend simulates streaming. Don’t rely on backend-side streaming.
+
 
 ---
 
@@ -64,11 +66,17 @@ Notes:
 
 ---
 
-## Example tasks for an AI coding agent (concise) ✅
-- Add an LLM provider stub: create provider under `backend/core/llm`, wire via `get_provider()` in `__init__.py`, add a small test in `backend/tests`
-- Add a new dev command: ensure `validate_command` accepts tokens, add to `DEV_CMD_WHITELIST` in test env, and create integration tests hitting `/api/dev/jobs` with `DEV_MODE=true`
-- Fix a backend test failure: run `pytest -q`, inspect `logs/server-app.log`, reproduce via `curl` to failing endpoint
+## Common tasks for an AI coding agent (copy-paste examples) ✅
+- Add an LLM provider
+  - Create `backend/core/llm/<provider>_provider.py` implementing `.generate(messages)` and raise `ConfigurationError`/`UpstreamError` appropriately.
+  - Wire it in `backend/core/llm/__init__.py` via `get_provider()` and add tests in `backend/tests/test_providers.py`.
+- Add a dev command
+  - Update `DEV_CMD_WHITELIST` (env or test setup). Add an integration test that POSTs to `/api/dev/jobs` with `DEV_MODE=true` and checks job lifecycle and logs (`logs/jobs`).
+- Debugging tests
+  - Run `pytest -q`. For failing endpoints, reproduce with `curl` and correlate using `X-Request-ID` in `logs/server-app.log`. For job-related failures inspect `logs/jobs/*.log` and `logs/jobs/YYYYMMDD.jsonl`.
+- File edits & safety
+  - Use `backend/app.py` FS helpers: `_resolve_fs_path()` enforces whitelist; avoid editing `memory/` and only add whitelist entries relative to repo root.
 
 ---
 
-If anything here is unclear or you'd like additional detail on a section (examples, commit conventions, or linking to PR templates), tell me which part to expand and I'll iterate. ✨
+If you'd like, I can: 1) keep this concise version and replace the existing doc, or 2) move longer examples and checklists into a separate `AGENTS.md`/`DEV-AGENTS.md` and leave a short pointer here. Which do you prefer, or what would you like me to add next? ✨

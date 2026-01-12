@@ -24,6 +24,7 @@ export default defineConfig({
   ],
   server: {
     port: 5173,
+    strictPort: true, // Enforcing strict port to prevent fallback
     proxy: {
       '/api': {
         target: 'http://localhost:8001',

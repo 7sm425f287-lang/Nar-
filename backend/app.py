@@ -46,6 +46,20 @@ app = FastAPI(title="Nar φ Backend", version="0.2.0")
 REPO_ROOT = Path(__file__).resolve().parent.parent
 MEMORY_DIR = (REPO_ROOT / "memory").resolve()
 FORBIDDEN_TOP_LEVEL = {"memory"}
+PRINCIPLES_PATH = REPO_ROOT / "system" / "principles.md"
+
+
+def _load_principles() -> str | None:
+    try:
+        return PRINCIPLES_PATH.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        logger.warning("principles.md not found at %s", PRINCIPLES_PATH)
+    except OSError as exc:
+        logger.warning("could not read principles.md: %s", exc)
+    return None
+
+
+PRINCIPLES_PROMPT = _load_principles()
 
 SERVER_LOG_PATH = REPO_ROOT / "logs" / "server-app.log"
 SERVER_LOG_PATH.parent.mkdir(exist_ok=True)
@@ -245,7 +259,8 @@ async def chat(payload: ChatRequest):
     provider_name = settings.llm
     provider = get_provider(provider_name, settings)
 
-    messages = format_messages(message, payload.system)
+    system_prompt = payload.system or PRINCIPLES_PROMPT
+    messages = format_messages(message, system_prompt)
     request_id = get_request_id() or generate_request_id()
     prompt_chars = len(message)
     logger.info(

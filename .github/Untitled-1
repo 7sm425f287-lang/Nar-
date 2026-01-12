@@ -1,0 +1,46 @@
+@@
+-import { app, BrowserWindow, nativeImage, ipcMain } from "electron";
++import { app, BrowserWindow, nativeImage, ipcMain } from "electron";
+ import * as path from "node:path";
+ import { spawn } from "node:child_process";
+ import { existsSync } from "node:fs";
+ 
+-// Sicherer Check, falls app zu früh ausgewertet wird
+-const isDev =
+-  process.env.NODE_ENV === "development" ||
+-  (typeof app !== "undefined" && app ? !app.isPackaged : true);
++// Determine development mode safely without accessing `app.isPackaged` at module-eval time.
++// Prefer explicit env overrides; fall back to checking `app.isPackaged` once app is ready.
++const _envIsDev = process.env.NODE_ENV === "development" || process.env.NIRO_DESKTOP_DEV === "1";
++let isDev = _envIsDev;
+@@
+-app.whenReady().then(() => {
+-  startBackend();
+-  createWindow();
+-  app.on("activate", () => {
+-    if (BrowserWindow.getAllWindows().length === 0) {
+-      createWindow();
+-    }
+-  });
+-});
++app.whenReady().then(() => {
++  // Try to refine dev-mode using `app.isPackaged` only after app is ready.
++  try {
++    if (typeof app !== "undefined" && app && typeof (app as any).isPackaged !== "undefined") {
++      isDev = _envIsDev || !(app as any).isPackaged;
++    }
++  } catch (err) {
++    // If anything goes wrong, fall back to env-driven value.
++    // This avoids TypeErrors like "Cannot read properties of undefined (reading 'isPackaged')"
++    console.warn("Could not determine app.isPackaged; using env flag for isDev:", err);
++    isDev = _envIsDev;
++  }
++
++  startBackend();
++  createWindow();
++  app.on("activate", () => {
++    if (BrowserWindow.getAllWindows().length === 0) {
++      createWindow();
++    }
++  });
++});

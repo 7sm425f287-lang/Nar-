@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
+import AgentField from '../components/AgentField'
 import { backendFetch, backendUrlFor } from '../lib/backend'
+import { useAgentNode } from '../lib/agent-runtime'
 
 const ARG_TOKEN_RE = /^[\w\-./:+@=]+$/
 const POLL_INTERVAL = 5000
@@ -149,6 +151,7 @@ function normalizePlannerJob(job: PlannerJob): ConsoleJob {
 }
 
 export default function DevConsolePage() {
+  const { pendingCommand, consumePendingCommand, setAgentPulse } = useAgentNode('dev')
   const [commands, setCommands] = useState<string[]>([])
   const [selectedCommand, setSelectedCommand] = useState('')
   const [argsInput, setArgsInput] = useState('')
@@ -172,6 +175,7 @@ export default function DevConsolePage() {
   const [selectedJob, setSelectedJob] = useState<SelectedJob | null>(null)
   const [logLines, setLogLines] = useState<string[]>([])
   const [abortingKey, setAbortingKey] = useState<string | null>(null)
+  const [agentNotice, setAgentNotice] = useState<string | null>(null)
 
   const eventSourceRef = useRef<EventSource | null>(null)
 
@@ -272,6 +276,29 @@ export default function DevConsolePage() {
       void fetchLog(selectedJob.kind, selectedJob.jobId)
     }
   }, [fetchLog, selectedJob])
+
+  useEffect(() => {
+    const tone = error ? 'error' : loadingShell || loadingPlanner ? 'busy' : 'active'
+    const detail =
+      error ||
+      (loadingPlanner
+        ? 'Planner wird gezuendet'
+        : loadingShell
+          ? 'Shell-Job wird gezuendet'
+          : selectedJob
+            ? `Live-Fokus: ${selectedJob.kind}`
+            : 'Kontrollierte Worker stehen bereit')
+    setAgentPulse('dev', tone, detail)
+    return () => {
+      setAgentPulse('dev', 'idle', 'Runner in Reserve')
+    }
+  }, [error, loadingPlanner, loadingShell, selectedJob, setAgentPulse])
+
+  useEffect(() => {
+    if (!pendingCommand) return
+    setAgentNotice(`Alpha delegierte an Dev: ${pendingCommand.body || 'Protokolle und Worker uebernehmen.'}`)
+    consumePendingCommand('dev')
+  }, [consumePendingCommand, pendingCommand])
 
   const consoleJobs = useMemo(() => {
     const normalized = [
@@ -522,6 +549,8 @@ export default function DevConsolePage() {
             </p>
           </div>
         </header>
+
+        <AgentField agentId="dev" compact notice={agentNotice} />
 
         {error && (
           <div className="rounded border border-red-100 bg-red-50 p-3 text-red-700" role="alert">

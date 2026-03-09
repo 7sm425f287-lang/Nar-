@@ -1,23 +1,19 @@
 import React, { useEffect, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 
+import { useAgentRuntime } from '@/lib/agent-runtime'
+
 export default function PrinciplesModal() {
   const [open, setOpen] = useState(false)
-  const [content, setContent] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
+  const { principles, principlesReady } = useAgentRuntime()
 
   useEffect(() => {
     const dismissed = localStorage.getItem('principles.dismissed') === '1'
     if (dismissed) return
-    setLoading(true)
-    window.moerlinPrinciples?.getPrinciples().then((res) => {
-      setLoading(false)
-      if (res?.ok && res.content) {
-        setContent(res.content)
-        setOpen(true)
-      }
-    }).catch(() => setLoading(false))
-  }, [])
+    if (principlesReady && principles?.raw) {
+      setOpen(true)
+    }
+  }, [principles, principlesReady])
 
   const dismiss = (persist = false) => {
     setOpen(false)
@@ -47,10 +43,10 @@ export default function PrinciplesModal() {
           </div>
         </header>
         <div className="p-6 max-h-[60vh] overflow-auto">
-          {loading && <div>Lade Prinzipien…</div>}
-          {!loading && content && (
+          {!principlesReady && <div>Lade Prinzipien…</div>}
+          {principlesReady && principles?.raw && (
             <article className="prose prose-invert max-w-none">
-              <ReactMarkdown>{content}</ReactMarkdown>
+              <ReactMarkdown>{principles.raw}</ReactMarkdown>
             </article>
           )}
         </div>

@@ -5,9 +5,33 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --background: 223 44% 8%;
+  --foreground: 220 50% 96%;
+  --card: 224 38% 11%;
+  --card-foreground: 220 50% 96%;
+  --popover: 224 38% 11%;
+  --popover-foreground: 220 50% 96%;
+  --primary: 36 82% 69%;
+  --primary-foreground: 219 56% 8%;
+  --secondary: 221 27% 18%;
+  --secondary-foreground: 220 34% 92%;
+  --muted: 221 24% 15%;
+  --muted-foreground: 217 18% 70%;
+  --accent: 222 35% 20%;
+  --accent-foreground: 220 50% 96%;
+  --destructive: 0 63% 52%;
+  --destructive-foreground: 210 40% 98%;
+  --border: 220 22% 18%;
+  --input: 220 22% 18%;
+  --ring: 36 82% 69%;
+  --radius: 1.4rem;
+}
+
 html,body,#root{ height:100%; }
 html {
   scroll-behavior: smooth;
+  color-scheme: dark;
 }
 
 body{
@@ -16,6 +40,9 @@ body{
   background-color:var(--color-paper);
   color:var(--color-umbra);
   text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
 }
 
 h1,h2,h3,h4,h5,h6{
@@ -24,11 +51,15 @@ h1,h2,h3,h4,h5,h6{
   letter-spacing: 0.012em;
 }
 
+a {
+  color: inherit;
+}
+
 button,input,textarea {
   font: inherit;
 }
 
 ::selection {
-  background: rgba(181, 139, 77, 0.22);
+  background: rgba(240, 187, 115, 0.24);
   color: var(--color-umbra);
 }

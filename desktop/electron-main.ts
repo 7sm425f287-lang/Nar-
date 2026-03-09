@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, nativeImage } from "electron";
+import { app, BrowserWindow, dialog, globalShortcut, ipcMain, Menu, nativeImage, Tray } from "electron";
 import { ChildProcess, spawn, spawnSync } from "node:child_process";
 import * as http from "node:http";
 import * as path from "node:path";
@@ -13,6 +13,7 @@ import {
 } from "node:fs";
 
 delete process.env.ELECTRON_RUN_AS_NODE;
+app.disableHardwareAcceleration();
 
 const APP_NAME = "Mφrlin";
 const BACKEND_NAME = "Mφrlin-Backend";
@@ -25,6 +26,7 @@ const BACKEND_POLL_INTERVAL_MS = 500;
 const BACKEND_STOP_TIMEOUT_MS = 6_000;
 const HTTP_REQUEST_TIMEOUT_MS = 3_000;
 const FALLBACK_MODEL = "gpt-4o-mini";
+const DEFAULT_LAUNCHER_SHORTCUT = process.env.MOERLIN_GLOBAL_SHORTCUT || "Option+Space";
 
 type RuntimePaths = {
   projectRoot: string;
@@ -46,6 +48,9 @@ let backendStartedByApp = false;
 let currentBackendUrl = "";
 let quitting = false;
 let cleanupInProgress = false;
+let bootstrapPromise: Promise<void> | null = null;
+let runtimePaths: RuntimePaths | null = null;
+let tray: Tray | null = null;
 let runtimeLogPath = path.resolve(process.cwd(), "desktop", RUNTIME_LOG_FILE);
 
 function logDesktop(message: string) {
@@ -70,6 +75,22 @@ function readLogTail(filePath: string, maxChars = 2200): string {
   } catch {
     return "";
   }
+}
+
+function loadNativeImage(...segments: string[]) {
+  return nativeImage.createFromPath(path.join(__dirname, ...segments));
+}
+
+function appIcon() {
+  return loadNativeImage("icons", "app.png");
+}
+
+function trayIcon() {
+  const image = loadNativeImage("icons", "narphi-icon.png");
+  if (image.isEmpty()) {
+    return image;
+  }
+  return image.resize({ width: 18, height: 18 });
 }
 
 function parseEnvFile(filePath: string): Record<string, string> {
@@ -369,6 +390,43 @@ function attachBackendLogging(child: ChildProcess, logPath: string) {
   });
 }
 
+function showLauncherWindow(win: BrowserWindow) {
+  if (win.isDestroyed()) {
+    return;
+  }
+  if (win.isMinimized()) {
+    win.restore();
+  }
+  win.center();
+  win.show();
+  win.focus();
+  win.moveTop();
+}
+
+function hideLauncherWindow() {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    return;
+  }
+  mainWindow.hide();
+}
+
+function toggleLauncherWindow() {
+  if (!runtimePaths) {
+    logDesktop("toggle requested before runtime paths were ready");
+    return;
+  }
+
+  const win = ensureLauncherWindow(runtimePaths);
+  if (win.isVisible() && win.isFocused()) {
+    logDesktop("launcher toggle -> hide");
+    hideLauncherWindow();
+    return;
+  }
+
+  logDesktop("launcher toggle -> show");
+  showLauncherWindow(win);
+}
+
 async function startManagedBackend(paths: RuntimePaths): Promise<string> {
   const preferredPort = Number(process.env.NIRO_BACKEND_PORT || DEFAULT_BACKEND_PORT);
   const portState = await ensurePortReady(preferredPort);
@@ -476,9 +534,12 @@ async function stopManagedBackend(): Promise<void> {
   }
 }
 
-function createMainWindow(paths: RuntimePaths) {
-  const iconPath = path.join(__dirname, "icons", "app.png");
-  const icon = nativeImage.createFromPath(iconPath);
+function createLauncherWindow(paths: RuntimePaths) {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    return mainWindow;
+  }
+
+  const icon = appIcon();
   if (process.platform === "darwin" && !icon.isEmpty()) {
     try {
       app.dock.setIcon(icon);
@@ -489,13 +550,24 @@ function createMainWindow(paths: RuntimePaths) {
 
   const win = new BrowserWindow({
     width: 1180,
-    height: 820,
+    height: 780,
     minWidth: 980,
-    minHeight: 680,
+    minHeight: 620,
     show: false,
+    frame: false,
+    transparent: true,
+    vibrancy: process.platform === "darwin" ? "under-window" : undefined,
+    visualEffectState: process.platform === "darwin" ? "active" : undefined,
+    alwaysOnTop: true,
+    fullscreenable: false,
+    maximizable: false,
+    minimizable: false,
+    roundedCorners: true,
+    resizable: true,
+    hasShadow: true,
     title: APP_NAME,
     icon,
-    backgroundColor: "#0d1110",
+    backgroundColor: "#00000000",
     webPreferences: {
       preload: paths.preloadPath,
       contextIsolation: true,
@@ -505,12 +577,118 @@ function createMainWindow(paths: RuntimePaths) {
   });
 
   win.once("ready-to-show", () => {
-    win.show();
+    logDesktop("launcher window ready");
+    showLauncherWindow(win);
+  });
+  win.on("close", (event) => {
+    if (quitting) {
+      return;
+    }
+    event.preventDefault();
+    logDesktop("launcher window close intercepted -> hide");
+    win.hide();
+  });
+  win.on("closed", () => {
+    if (mainWindow === win) {
+      mainWindow = null;
+    }
+  });
+  win.on("blur", () => {
+    if (quitting) {
+      return;
+    }
+    setTimeout(() => {
+      if (!quitting && !win.isDestroyed() && !win.isFocused()) {
+        logDesktop("launcher window blur -> hide");
+        win.hide();
+      }
+    }, 120);
   });
 
+  win.webContents.on("did-finish-load", () => {
+    logDesktop(`renderer finished load: ${paths.frontendIndex}`);
+  });
+  win.webContents.on("did-fail-load", (_event, errorCode, errorDescription, validatedURL) => {
+    const message = `renderer failed load code=${errorCode} url=${validatedURL} detail=${errorDescription}`;
+    logDesktop(message);
+    dialog.showErrorBox(`${APP_NAME} Renderer Fehler`, `${message}\n\nLog: ${runtimeLogPath}`);
+  });
+  win.webContents.on("console-message", (_event, level, message, line, sourceId) => {
+    logDesktop(`renderer console level=${level} source=${sourceId}:${line} message=${message}`);
+  });
+  win.webContents.on("render-process-gone", (_event, details) => {
+    logDesktop(`render process gone reason=${details.reason} exitCode=${details.exitCode}`);
+  });
   win.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
-  win.loadFile(paths.frontendIndex);
+  logDesktop(`frontend-index=${paths.frontendIndex}`);
+  void win.loadFile(paths.frontendIndex).catch((error) => {
+    const detail = error instanceof Error ? error.stack || error.message : String(error);
+    logDesktop(`loadFile rejected: ${detail}`);
+    dialog.showErrorBox(`${APP_NAME} Frontend Fehler`, `${detail}\n\nLog: ${runtimeLogPath}`);
+  });
+  win.setAlwaysOnTop(true, "floating");
+  if (process.platform === "darwin") {
+    win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+  }
+  logDesktop("launcher window created");
+  mainWindow = win;
   return win;
+}
+
+function ensureLauncherWindow(paths: RuntimePaths) {
+  const existing = BrowserWindow.getAllWindows()[0];
+  if (existing && !existing.isDestroyed()) {
+    mainWindow = existing;
+    return existing;
+  }
+
+  return createLauncherWindow(paths);
+}
+
+function createTray(paths: RuntimePaths) {
+  if (tray) {
+    return tray;
+  }
+
+  const icon = trayIcon();
+  tray = new Tray(icon.isEmpty() ? appIcon() : icon);
+  tray.setToolTip(APP_NAME);
+  tray.on("click", () => {
+    toggleLauncherWindow();
+  });
+  tray.setContextMenu(
+    Menu.buildFromTemplate([
+      {
+        label: `${APP_NAME} anzeigen`,
+        click: () => showLauncherWindow(ensureLauncherWindow(paths)),
+      },
+      {
+        label: `${APP_NAME} ausblenden`,
+        click: () => hideLauncherWindow(),
+      },
+      { type: "separator" },
+      {
+        label: "Beenden",
+        click: () => {
+          app.quit();
+        },
+      },
+    ]),
+  );
+  logDesktop("tray initialized");
+  return tray;
+}
+
+function registerLauncherShortcut() {
+  globalShortcut.unregisterAll();
+  const success = globalShortcut.register(DEFAULT_LAUNCHER_SHORTCUT, () => {
+    toggleLauncherWindow();
+  });
+  if (!success) {
+    logDesktop(`failed to register global shortcut ${DEFAULT_LAUNCHER_SHORTCUT}`);
+    return;
+  }
+  logDesktop(`registered global shortcut ${DEFAULT_LAUNCHER_SHORTCUT}`);
 }
 
 function loadPrinciples(paths: RuntimePaths): { ok: true; content: string } | { ok: false; error: string } {
@@ -555,27 +733,38 @@ function installGlobalErrorHooks() {
 }
 
 async function bootstrap() {
-  installGlobalErrorHooks();
-  const paths = resolveRuntimePaths();
-  registerProcessCleanup();
-
-  ipcMain.handle("get-backend-url", () => currentBackendUrl);
-  ipcMain.handle("get-principles", async () => loadPrinciples(paths));
-
-  try {
-    currentBackendUrl = await startManagedBackend(paths);
-    mainWindow = createMainWindow(paths);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    const tail = readLogTail(paths.backendLogPath);
-    logErrorWithStack("bootstrap failed", error);
-    await stopManagedBackend();
-    dialog.showErrorBox(
-      `${APP_NAME} Bootstrap fehlgeschlagen`,
-      `${message}\n\nLog: ${paths.backendLogPath}${tail ? `\n\nLetzte Backend-Ausgabe:\n${tail}` : ""}`,
-    );
-    app.quit();
+  if (bootstrapPromise) {
+    return bootstrapPromise;
   }
+
+  bootstrapPromise = (async () => {
+    installGlobalErrorHooks();
+    const paths = resolveRuntimePaths();
+    runtimePaths = paths;
+    registerProcessCleanup();
+
+    ipcMain.handle("get-backend-url", () => currentBackendUrl);
+    ipcMain.handle("get-principles", async () => loadPrinciples(paths));
+
+    try {
+      currentBackendUrl = await startManagedBackend(paths);
+      registerLauncherShortcut();
+      createTray(paths);
+      showLauncherWindow(ensureLauncherWindow(paths));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const tail = readLogTail(paths.backendLogPath);
+      logErrorWithStack("bootstrap failed", error);
+      await stopManagedBackend();
+      dialog.showErrorBox(
+        `${APP_NAME} Bootstrap fehlgeschlagen`,
+        `${message}\n\nLog: ${paths.backendLogPath}${tail ? `\n\nLetzte Backend-Ausgabe:\n${tail}` : ""}`,
+      );
+      app.quit();
+    }
+  })();
+
+  return bootstrapPromise;
 }
 
 app.whenReady().then(() => {
@@ -583,7 +772,9 @@ app.whenReady().then(() => {
 });
 
 app.on("window-all-closed", () => {
-  app.quit();
+  if (process.platform !== "darwin") {
+    app.quit();
+  }
 });
 
 app.on("before-quit", (event) => {
@@ -601,23 +792,26 @@ app.on("before-quit", (event) => {
   }
 });
 
+app.on("will-quit", () => {
+  globalShortcut.unregisterAll();
+  tray?.destroy();
+  tray = null;
+});
+
 app.on("activate", () => {
-  if (!mainWindow && currentBackendUrl) {
+  if (!runtimePaths) {
+    return;
+  }
+  if (BrowserWindow.getAllWindows().length === 0 && currentBackendUrl) {
     try {
-      const paths = resolveRuntimePaths();
-      mainWindow = createMainWindow(paths);
+      showLauncherWindow(ensureLauncherWindow(runtimePaths));
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       dialog.showErrorBox(APP_NAME, message);
     }
+    return;
   }
-});
-
-app.on("browser-window-created", (_, window) => {
-  mainWindow = window;
-  window.on("closed", () => {
-    if (mainWindow === window) {
-      mainWindow = null;
-    }
-  });
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    showLauncherWindow(mainWindow);
+  }
 });

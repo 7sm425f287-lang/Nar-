@@ -7,3 +7,8 @@ pytest==8.3.3
 pytest-asyncio==0.23.7
 Jinja2==3.1.4
 PyYAML==6.0.2
+
+# Optional/advanced dependencies for algorithmic scanning + vector storage
+playwright>=1.40.0
+beautifulsoup4>=4.12.2
+chromadb>=0.4.0

@@ -3,7 +3,9 @@ import type { editor as MonacoEditor } from 'monaco-editor'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 
+import AgentField from '../components/AgentField'
 import { backendFetch } from '../lib/backend'
+import { useAgentNode } from '../lib/agent-runtime'
 
 type FsReadResponse = {
   path: string
@@ -29,6 +31,7 @@ function inferLanguage(path: string): string {
 }
 
 export default function EditorPage() {
+  const { pendingCommand, consumePendingCommand, setAgentPulse } = useAgentNode('editor')
   const [searchParams, setSearchParams] = useSearchParams()
   const pathParam = searchParams.get('path') ?? ''
 
@@ -42,6 +45,7 @@ export default function EditorPage() {
   const [suggestions, setSuggestions] = useState<FileSuggestion[]>([])
   const [autosaveEnabled, setAutosaveEnabled] = useState(true)
   const [savedAt, setSavedAt] = useState<string | null>(null)
+  const [agentNotice, setAgentNotice] = useState<string | null>(null)
 
   const editorRef = useRef<MonacoEditor.IStandaloneCodeEditor | null>(null)
   const monacoRef = useRef<typeof import('monaco-editor') | null>(null)
@@ -147,6 +151,35 @@ export default function EditorPage() {
     loadSuggestions()
   }, [loadSuggestions])
 
+  useEffect(() => {
+    const tone = error ? 'error' : saving || loading ? 'busy' : 'active'
+    const detail =
+      error ||
+      (saving
+        ? 'Textkoerper wird gesichert'
+        : loading
+          ? 'Datei wird geladen'
+          : pathParam
+            ? `Offen: ${pathParam}`
+            : 'Datei kann aufgenommen werden')
+    setAgentPulse('editor', tone, detail)
+    return () => {
+      setAgentPulse('editor', 'idle', 'Textkoerper bereit')
+    }
+  }, [error, loading, pathParam, saving, setAgentPulse])
+
+  useEffect(() => {
+    if (!pendingCommand) return
+
+    const pathMatch = pendingCommand.body.match(/[\w./-]+\.(?:md|txt|json|tsx?|jsx?|py|css|html|ya?ml)/i)
+    if (pathMatch?.[0]) {
+      setSearchParams({ path: pathMatch[0] })
+    }
+
+    setAgentNotice(`Alpha delegierte an Editor: ${pendingCommand.body || 'Arbeitsdatei fokusieren.'}`)
+    consumePendingCommand('editor')
+  }, [consumePendingCommand, pendingCommand, setSearchParams])
+
   const language = useMemo(() => inferLanguage(pathParam), [pathParam])
   const hasChanges = content !== initialContent
   const savedAtLabel = useMemo(() => {
@@ -222,6 +255,8 @@ export default function EditorPage() {
             </Link>
           </nav>
         </header>
+
+        <AgentField agentId="editor" compact notice={agentNotice} />
 
         <form className="flex flex-col gap-3 sm:flex-row" onSubmit={submitPath}>
           <label className="flex flex-1 flex-col text-sm">

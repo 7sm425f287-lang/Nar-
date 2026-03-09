@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 
+import AgentField from '../components/AgentField'
 import { backendFetch } from '../lib/backend'
+import { useAgentNode } from '../lib/agent-runtime'
 
 const TEMPLATE_PATH = 'logs/chronik/2025-10-15-template.md'
 
@@ -54,6 +56,7 @@ async function emitTelemetry(event: string, data: Record<string, unknown>) {
 }
 
 export default function ChronikPage() {
+  const { pendingCommand, consumePendingCommand, setAgentPulse } = useAgentNode('chronik')
   const [title, setTitle] = useState('')
   const [slug, setSlug] = useState('')
   const [timeWindow, setTimeWindow] = useState('')
@@ -66,6 +69,7 @@ export default function ChronikPage() {
   const [statusMessage, setStatusMessage] = useState<string | null>(null)
   const [createdPath, setCreatedPath] = useState<string | null>(null)
   const [templateId, setTemplateId] = useState<string>('standard')
+  const [agentNotice, setAgentNotice] = useState<string | null>(null)
 
   const templateRef = useRef<TemplateState>({
     content: '',
@@ -129,6 +133,35 @@ export default function ChronikPage() {
       source: 'frontend',
     })
   }, [templateId, today])
+
+  useEffect(() => {
+    const tone = status === 'error' ? 'error' : status === 'saving' || templateRef.current.loading ? 'busy' : 'active'
+    const detail =
+      statusMessage ||
+      (status === 'saving'
+        ? 'Chronik wird verdichtet'
+        : templateRef.current.loading
+          ? 'Template wird geladen'
+          : 'Mikro und Makro koennen verbunden werden')
+    setAgentPulse('chronik', tone, detail)
+    return () => {
+      setAgentPulse('chronik', 'idle', 'Mikro und Makro warten')
+    }
+  }, [setAgentPulse, status, statusMessage, templateId])
+
+  useEffect(() => {
+    if (!pendingCommand) return
+
+    if (pendingCommand.body) {
+      setNotes((current) => current || pendingCommand.body)
+      if (!title) {
+        setTitle('Delegierter Chronik-Impuls')
+      }
+    }
+
+    setAgentNotice(`Alpha delegierte an Chronik: ${pendingCommand.body || 'Neuen Eintrag anlegen.'}`)
+    consumePendingCommand('chronik')
+  }, [consumePendingCommand, pendingCommand, title])
 
   const buildContent = useCallback(
     (template: string) => {
@@ -246,6 +279,8 @@ export default function ChronikPage() {
             </Link>
           </nav>
         </header>
+
+        <AgentField agentId="chronik" compact notice={agentNotice} />
 
         {templateRef.current.loading && (
           <div className="rounded border border-stone/50 bg-white/70 p-3 text-sm text-smoke">

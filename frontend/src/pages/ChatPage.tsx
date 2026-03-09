@@ -1,13 +1,26 @@
+import { AnimatePresence, motion } from 'framer-motion'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
-
 import { backendFetch } from '../lib/backend'
+import { useAgentNode } from '../lib/agent-runtime'
 
 type ChatStatus = 'idle' | 'sending' | 'receiving' | 'error'
 
 type Message = { id: string; role: 'user' | 'bot'; text: string }
 
 const BACKOFF_MS = [300, 900, 1500]
+const sealSrc = './assets/seal.svg'
+const ease = [0.22, 1, 0.36, 1] as const
+const breathTransition = {
+  duration: 5,
+  repeat: Infinity,
+  ease: 'easeInOut' as const,
+}
+const delegationExamples = [
+  '@Schmiede, erstelle einen neuen Agenten fuer Release-Resonanz',
+  '@Editor, oeffne drafts/social/ und bereite den Textkoerper vor',
+  '@Chronik, lege einen neuen Eintrag fuer heute an',
+  '@Dev, oeffne die Planner-Protokolle',
+]
 
 const generateId = () =>
   typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
@@ -15,6 +28,7 @@ const generateId = () =>
     : Math.random().toString(36).slice(2)
 
 export default function ChatPage() {
+  const { agent, delegatePrompt, setAgentPulse } = useAgentNode('resonanz')
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [status, setStatus] = useState<ChatStatus>('idle')
@@ -120,7 +134,7 @@ export default function ChatPage() {
           setError('Abgebrochen.')
         } else if (attempt < BACKOFF_MS.length) {
           const delay = BACKOFF_MS[attempt]
-          setError(`Versuch ${attempt + 1} fehlgeschlagen – neuer Versuch in ${delay} ms.`)
+          setError(`Versuch ${attempt + 1} fehlgeschlagen - neuer Versuch in ${delay} ms.`)
           window.setTimeout(() => {
             void sendMessage(prompt, attempt + 1)
           }, delay)
@@ -146,16 +160,33 @@ export default function ChatPage() {
       if (isBusy) return
       const prompt = input.trim()
       if (!prompt) return
-      const userMessage: Message = { id: generateId(), role: 'user', text: prompt }
-      setMessages((prev) => [...prev, userMessage])
+
+      const delegated = delegatePrompt(prompt)
       setInput('')
       setLastPrompt(prompt)
       setLastRequestId(null)
       setError(null)
       setLatency(null)
+
+      if (delegated) {
+        setMessages((prev) => [
+          ...prev,
+          { id: generateId(), role: 'user', text: prompt },
+          {
+            id: generateId(),
+            role: 'bot',
+            text: `${delegated.target} wurde gerufen. Auftrag: ${delegated.body || 'Fokus uebernehmen.'}`,
+          },
+        ])
+        setStatus('idle')
+        return
+      }
+
+      const userMessage: Message = { id: generateId(), role: 'user', text: prompt }
+      setMessages((prev) => [...prev, userMessage])
       void sendMessage(prompt, 0)
     },
-    [input, isBusy, sendMessage],
+    [delegatePrompt, input, isBusy, sendMessage],
   )
 
   const handleRetry = useCallback(() => {
@@ -177,189 +208,215 @@ export default function ChatPage() {
   const statusLabel = useMemo(() => {
     switch (status) {
       case 'sending':
-        return 'Senden…'
+        return 'Senden'
       case 'receiving':
-        return 'Empfangen…'
+        return 'Empfangen'
       case 'error':
-        return 'Fehlgeschlagen'
+        return 'Fehler'
       default:
         return 'Bereit'
     }
   }, [status])
 
+  const statusTone = useMemo(() => {
+    switch (status) {
+      case 'receiving':
+        return 'Resonanz im Fluss'
+      case 'sending':
+        return 'Impuls wird geordnet'
+      case 'error':
+        return 'Verbindung braucht einen neuen Anlauf'
+      default:
+        return messages.length > 0 ? 'Gespräch im ruhigen Takt' : 'Raum fuer einen ersten Impuls'
+    }
+  }, [messages.length, status])
+
   const showRetry = status === 'error' && Boolean(lastPrompt)
   const hasMessages = messages.length > 0
-  const flowMarkerCount = status === 'receiving' ? 7 : 5
-  const statusTone =
-    status === 'receiving'
-      ? 'Resonanz im Fluss'
-      : status === 'sending'
-        ? 'Impuls wird geordnet'
-        : hasMessages
-          ? 'Gespräch im ruhigen Takt'
-          : 'Raum für einen ersten Impuls'
+  const activeConstraint = agent.coreConstraints[0] || agent.essence
+
+  useEffect(() => {
+    const tone =
+      status === 'error'
+        ? 'error'
+        : status === 'sending' || status === 'receiving'
+          ? 'busy'
+          : 'active'
+    setAgentPulse('resonanz', tone, statusTone)
+    return () => {
+      setAgentPulse('resonanz', 'idle', 'Alpha-Feld')
+    }
+  }, [setAgentPulse, status, statusTone])
 
   return (
-    <div className="sanctum-page px-4 py-6 sm:px-6 sm:py-8">
-      <div className="mx-auto w-full max-w-5xl">
-        <div className="sanctum-shell bg-paper-grain shadow-soft-grain vignette rounded-[2rem] p-5 sm:p-8">
+    <div className="sanctum-page">
+      <div className="launcher-shell">
         <div className="lightpoint" aria-hidden="true"></div>
-        <header className="mb-6 flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
-          <div className="flex items-start gap-4">
-            <div className="seal-sanctum hidden shrink-0 sm:grid" aria-hidden="true">
-              <div className="seal-halo"></div>
-              <img src="/assets/seal.svg" alt="seal" className="seal-core" />
-            </div>
-            <div>
-              <div className="mb-3 flow-marker-row" aria-hidden="true">
-                {Array.from({ length: flowMarkerCount }).map((_, index) => (
-                  <span
-                    key={`header-marker-${index}`}
-                    className="flow-marker"
-                    style={{ animationDelay: `${index * 180}ms` }}
-                  />
-                ))}
-              </div>
-              <div className="mb-2 text-[11px] uppercase tracking-[0.34em] text-smoke">
-                kunzt.freiheit interface
-              </div>
-              <h1 className="text-4xl leading-none sm:text-6xl">Mφrlin</h1>
-              <p className="mt-3 max-w-2xl text-base leading-8 text-smoke sm:text-lg">
-                Ein stilles Kraftzentrum für Sprache, Ordnung und Resonanz. Weniger Oberfläche, mehr
-                innere Frequenz.
-              </p>
-            </div>
-          </div>
-          <div className="flex flex-col items-start gap-3 sm:items-end">
+
+        <header className="launcher-topbar">
+          <div className="launcher-status-stack">
             <div className="status-rune">
               <span>{statusLabel}</span>
             </div>
-            {latency !== null && (
-              <span className="rounded-full border border-forest/25 bg-forest/10 px-3 py-1 text-[11px] uppercase tracking-[0.22em] text-forest">
-                Latenz {latency} ms
-              </span>
-            )}
-            <nav className="flex gap-4 text-sm text-forest/90">
-              <Link to="/editor" className="transition-soft hover:underline">
-                Editor
-              </Link>
-              <Link to="/chronik" className="transition-soft hover:underline">
-                Chronik
-              </Link>
-              <Link to="/dev" className="transition-soft hover:underline">
-                Dev
-              </Link>
-            </nav>
+            <div className="launcher-status-copy">
+              <span>{statusTone}</span>
+              {latency !== null && <span>Latenz {latency} ms</span>}
+            </div>
+          </div>
+
+          <div className="launcher-regie-copy">
+            <span>{agent.legacy}</span>
+            <span>{activeConstraint}</span>
           </div>
         </header>
 
-        <div className="mb-4 flex items-center justify-between gap-4">
-          <div className="text-[11px] uppercase tracking-[0.3em] text-smoke">{statusTone}</div>
-          <div className="frequency-line" aria-hidden="true">
-            {Array.from({ length: flowMarkerCount }).map((_, index) => (
-              <span
-                key={`status-marker-${index}`}
-                className="flow-marker"
-                style={{ animationDelay: `${index * 120}ms` }}
-              />
-            ))}
-          </div>
-        </div>
-
-        {error && (
-          <div className="error-banner mb-5 space-y-2 rounded-[1.4rem] p-4">
-            <div>{error}</div>
-            {lastRequestId && <div className="text-xs text-smoke">Request-ID: {lastRequestId}</div>}
-            {showRetry && (
-              <button
-                type="button"
-                onClick={handleRetry}
-                className="rounded-full border border-forest/40 bg-forest/5 px-3 py-1 text-xs text-forest transition-soft hover:bg-forest/10"
-              >
-                Erneut versuchen
-              </button>
-            )}
-          </div>
-        )}
-
-        <main className={`sanctum-panel mb-6 ${hasMessages ? 'min-h-[360px]' : 'min-h-[420px]'}`}>
-          {!hasMessages ? (
-            <div className="kraftzentrum">
-              <div className="seal-sanctum" aria-hidden="true">
-                <div className="seal-halo"></div>
-                <img src="/assets/seal.svg" alt="seal" className="seal-core" />
-              </div>
-              <div className="max-w-2xl text-center">
-                <div className="mb-4 status-rune">Sprach- &amp; Flow-DNA</div>
-                <h2 className="text-3xl leading-tight sm:text-[3.3rem]">
-                  Ein Raum, der nicht drängt, sondern bündelt.
-                </h2>
-                <p className="mt-5 text-lg leading-8 text-smoke">
-                  Lege einen Gedanken in die Mitte. Mφrlin antwortet nicht als hektische Maschine,
-                  sondern als ruhiger Resonanzraum für Form, Bedeutung und Richtung.
-                </p>
-                <div className="mt-7 frequency-line" aria-hidden="true">
-                  {Array.from({ length: 9 }).map((_, index) => (
-                    <span
-                      key={`hero-marker-${index}`}
-                      className="flow-marker"
-                      style={{ animationDelay: `${index * 160}ms` }}
-                    />
-                  ))}
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="message-stream">
-              <div className="mb-5 flex items-center justify-between gap-4">
-                <div className="text-[11px] uppercase tracking-[0.3em] text-smoke">
-                  Gesprächsfluss
-                </div>
-                <div className="frequency-line" aria-hidden="true">
-                  {Array.from({ length: 6 }).map((_, index) => (
-                    <span
-                      key={`stream-marker-${index}`}
-                      className="flow-marker"
-                      style={{ animationDelay: `${index * 140}ms` }}
-                    />
-                  ))}
-                </div>
-              </div>
-              <div className="space-y-4">
-                {messages.map((message) => (
-                  <div key={message.id} className={message.role === 'user' ? 'text-right' : 'text-left'}>
-                    <div className="mb-2 text-[11px] uppercase tracking-[0.24em] text-smoke">
-                      {message.role === 'user' ? 'Impuls' : 'Resonanz'}
-                    </div>
-                    <div className={message.role === 'user' ? 'chat-bubble-user' : 'chat-bubble-bot'}>
-                      {message.text}
-                    </div>
-                  </div>
-                ))}
-                {status === 'sending' && (
-                  <div className="pt-2 text-sm text-smoke">Der Impuls wird geordnet…</div>
-                )}
-                {status === 'receiving' && (
-                  <div className="flex items-center gap-3 pt-2 text-sm text-smoke">
-                    <span>Die Resonanz formt sich…</span>
-                    <div className="frequency-line" aria-hidden="true">
-                      {Array.from({ length: 4 }).map((_, index) => (
-                        <span
-                          key={`receiving-marker-${index}`}
-                          className="flow-marker"
-                          style={{ animationDelay: `${index * 120}ms` }}
-                        />
-                      ))}
-                    </div>
-                  </div>
+        <AnimatePresence initial={false}>
+          {error && (
+            <motion.div
+              key="launcher-error"
+              initial={{ opacity: 0, y: -12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.24, ease }}
+              className="launcher-error"
+            >
+              <div className="error-banner space-y-2 rounded-[1.4rem] p-4">
+                <div>{error}</div>
+                {lastRequestId && <div className="text-xs text-smoke">Request-ID: {lastRequestId}</div>}
+                {showRetry && (
+                  <button type="button" onClick={handleRetry} className="secondary-button">
+                    Erneut versuchen
+                  </button>
                 )}
               </div>
-            </div>
+            </motion.div>
           )}
+        </AnimatePresence>
+
+        <main className="launcher-stage">
+          <AnimatePresence mode="wait">
+            {!hasMessages ? (
+              <motion.section
+                key="launcher-altar"
+                initial={{ opacity: 0, y: 18 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -14 }}
+                transition={{ duration: 0.4, ease }}
+                className="launcher-altar"
+              >
+                <motion.div
+                  className="launcher-seal-wrap"
+                  animate={{ scale: [0.97, 1.02, 0.97], opacity: [0.78, 1, 0.78] }}
+                  transition={breathTransition}
+                >
+                  <div className="launcher-seal-glow" aria-hidden="true"></div>
+                  <div className="seal-sanctum launcher-seal" aria-hidden="true">
+                    <div className="seal-halo"></div>
+                    <img src={sealSrc} alt="seal" className="seal-core" />
+                  </div>
+                </motion.div>
+
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.38, ease, delay: 0.08 }}
+                  className="launcher-altar-copy"
+                >
+                  <h1 className="launcher-wordmark">Mφrlin</h1>
+                  <p className="launcher-tagline">
+                    Alpha-Instanz fuer Sprache, Richtung und Delegation. Resonanz bindet die Geister
+                    von niro-chat, Nar φ und Mφrlin in eine einzige Huelle.
+                  </p>
+                </motion.div>
+
+                <div className="agent-command-grid">
+                  {delegationExamples.map((example) => (
+                    <button
+                      key={example}
+                      type="button"
+                      className="agent-command-chip"
+                      onClick={() => setInput(example)}
+                    >
+                      {example}
+                    </button>
+                  ))}
+                </div>
+              </motion.section>
+            ) : (
+              <motion.section
+                key="launcher-conversation"
+                initial={{ opacity: 0, y: 18 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -14 }}
+                transition={{ duration: 0.34, ease }}
+                className="launcher-conversation"
+              >
+                <div className="launcher-conversation-head">
+                  <div className="launcher-conversation-label">Gespräch</div>
+                  <AnimatePresence initial={false}>
+                    {status === 'receiving' && (
+                      <motion.div
+                        key="receiving-flow"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className="frequency-line"
+                        aria-hidden="true"
+                      >
+                        {Array.from({ length: 4 }).map((_, index) => (
+                          <span
+                            key={`receiving-marker-${index}`}
+                            className="flow-marker"
+                            style={{ animationDelay: `${index * 140}ms` }}
+                          />
+                        ))}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+
+                <div className="launcher-message-scroll">
+                  {messages.map((message, index) => (
+                    <motion.div
+                      key={message.id}
+                      layout
+                      initial={{ opacity: 0, y: 16 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.28, ease, delay: Math.min(index, 6) * 0.04 }}
+                      className={message.role === 'user' ? 'message-entry-user' : 'message-entry-bot'}
+                    >
+                      <div className="mb-2 text-[11px] uppercase tracking-[0.24em] text-smoke">
+                        {message.role === 'user' ? 'Impuls' : 'Resonanz'}
+                      </div>
+                      <div className={message.role === 'user' ? 'chat-bubble-user' : 'chat-bubble-bot'}>
+                        {message.text}
+                      </div>
+                    </motion.div>
+                  ))}
+
+                  {status === 'sending' && (
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className="pt-2 text-sm text-smoke"
+                    >
+                      Der Impuls wird geordnet...
+                    </motion.div>
+                  )}
+                </div>
+              </motion.section>
+            )}
+          </AnimatePresence>
         </main>
 
-        <form className="grid gap-3" onSubmit={send}>
-          <div className="ritual-compose">
+        <motion.form
+          layout
+          transition={{ duration: 0.28, ease }}
+          className="launcher-compose-shell"
+          onSubmit={send}
+        >
+          <div className="launcher-compose">
             <textarea
               value={input}
               onChange={(event) => setInput(event.target.value)}
@@ -369,33 +426,31 @@ export default function ChatPage() {
                   send()
                 }
               }}
-              className="input-mystic min-h-[118px] resize-none"
-              placeholder="Lege hier den ersten Impuls in die Mitte…"
+              className="input-mystic launcher-input resize-none"
+              placeholder="@Schmiede, @Editor, @Chronik oder @Dev delegieren..."
               aria-label="message"
               disabled={isBusy}
             />
-            <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="text-sm text-smoke">
-                Enter sendet. Shift + Enter oeffnet eine neue Zeile.
-              </div>
-              <div className="flex items-center gap-2">
+
+            <div className="launcher-compose-meta">
+              <div className="launcher-compose-hint">Enter sendet. Shift + Enter setzt eine neue Zeile.</div>
+              <div className="launcher-compose-actions">
                 <button
                   type="button"
                   onClick={handleAbort}
-                  className="rounded-full border border-stone px-4 py-2 text-sm text-smoke transition-soft hover:border-forest hover:text-forest disabled:opacity-50"
+                  className="secondary-button"
                   disabled={!isBusy}
                 >
                   Stillstellen
                 </button>
-                <button type="submit" className="button-mystic transition-soft" disabled={isBusy}>
-                  {isBusy ? 'Im Fluss…' : 'Impuls senden'}
+                <button type="submit" className="button-mystic" disabled={isBusy}>
+                  {isBusy ? 'Im Fluss' : 'Impuls senden'}
                 </button>
               </div>
             </div>
           </div>
-        </form>
+        </motion.form>
       </div>
-    </div>
     </div>
   )
 }

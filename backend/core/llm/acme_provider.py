@@ -1,3 +1,40 @@
+try:
+    from backend.core.errors import ConfigurationError, UpstreamError
+except Exception:
+    class ConfigurationError(Exception):
+        pass
+
+    class UpstreamError(Exception):
+        pass
+
+
+class AcmeProvider:
+    """Minimal example LLM provider used for tests and as a template.
+
+    It follows the project's guidance: raises `ConfigurationError` on
+    missing settings and `UpstreamError` on unexpected failures.
+    """
+
+    name = "acme"
+
+    def __init__(self, settings: dict):
+        if not settings:
+            raise ConfigurationError("missing settings for acme provider")
+        self.settings = settings
+
+    def generate(self, messages):
+        """Return a single summarized reply string for the given messages.
+
+        messages: list[dict] with keys `role` and `content`.
+        """
+        try:
+            prompt = "\n".join(m.get("content", "") for m in messages)
+            reply = "Antwort von Acme: " + (prompt[:100] if prompt else "")
+            return reply
+        except Exception as e:
+            raise UpstreamError(str(e))
+
+# EOF
 from .base import LLMProvider, ConfigurationError, UpstreamError
 
 

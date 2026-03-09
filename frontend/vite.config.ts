@@ -9,8 +9,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'robots.txt', 'apple-touch-icon.png'],
       manifest: {
-        name: 'Niro Chat',
-        short_name: 'Niro',
+        name: 'Mφrlin',
+        short_name: 'Mφr',
         start_url: '/',
         display: 'standalone',
         background_color: '#0b0b0b',

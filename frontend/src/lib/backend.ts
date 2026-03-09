@@ -1,9 +1,9 @@
-type NiroBridge = {
+type MoerlinBridge = {
   getBackendUrl?: () => Promise<string>;
 };
 
 const backendBasePromise = (async () => {
-  const bridge = (globalThis as typeof globalThis & { niro?: NiroBridge }).niro;
+  const bridge = (globalThis as typeof globalThis & { moerlin?: MoerlinBridge }).moerlin;
 
   if (bridge?.getBackendUrl) {
     try {
@@ -12,7 +12,7 @@ const backendBasePromise = (async () => {
         return stripTrailingSlash(url);
       }
     } catch (error) {
-      console.warn("Failed to retrieve backend URL from Electron bridge", error);
+      console.warn("Failed to retrieve backend URL from Mφrlin bridge", error);
     }
   }
 

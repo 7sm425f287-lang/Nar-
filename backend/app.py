@@ -37,11 +37,11 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)s %(name)s [request_id=%(request_id)s] %(message)s",
 )
 
-logger = logging.getLogger("narphi.backend.api")
+logger = logging.getLogger("moerlin.backend.api")
 
 settings = get_settings()
 
-app = FastAPI(title="Nar φ Backend", version="0.2.0")
+app = FastAPI(title="Mφrlin-Backend", version="0.2.0")
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 MEMORY_DIR = (REPO_ROOT / "memory").resolve()
@@ -246,7 +246,7 @@ async def request_context_middleware(request: Request, call_next):
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "env": settings.env, "provider": settings.llm}
+    return {"status": "ok", "name": "Mφrlin-Backend", "env": settings.env, "provider": settings.llm}
 
 
 @app.post("/chat", response_model=ChatResponse)

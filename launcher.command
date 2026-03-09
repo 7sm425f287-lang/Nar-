@@ -7,7 +7,7 @@ ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
 echo "[launcher] Initial cleanup: killing any process listening on port 5173..."
 lsof -ti:5173 | xargs kill -9 2>/dev/null || true
 
-osascript -e 'display notification "ϕ — SARIT-EL Instanz erwacht. Eden wird kultiviert." with title "SARIT-EL"' >/dev/null 2>&1 || true
+osascript -e 'display notification "ϕ — Mφrlin Instanz erwacht. Eden wird kultiviert." with title "Mφrlin"' >/dev/null 2>&1 || true
 
 start_backend() {
   echo "[launcher] Starting backend (uvicorn) on port 8001 in background..."

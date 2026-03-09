@@ -4,12 +4,376 @@
 
 /* BASE – ruhige Typo, erdiger Grundton */
 @layer base {
+  :root {
+    --color-paper: #f5efe6;
+    --color-paper-deep: #ebe0d0;
+    --color-ivory: #fbf7f0;
+    --color-umbra: #2f221b;
+    --color-smoke: #6d6258;
+    --color-smoke-soft: rgba(86, 73, 61, 0.72);
+    --color-stone: rgba(91, 68, 47, 0.14);
+    --color-stone-strong: rgba(91, 68, 47, 0.24);
+    --color-forest: #304b3b;
+    --color-forest-soft: rgba(48, 75, 59, 0.1);
+    --color-gold: #b58b4d;
+    --color-gold-soft: rgba(181, 139, 77, 0.2);
+    --color-shadow: rgba(34, 24, 16, 0.14);
+    --font-ritual: "Cormorant Garamond", "EB Garamond", Georgia, serif;
+    --font-ui: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+}
+
+@layer base {
   html, body {
-    @apply bg-earth-paper text-earth-rauch font-serif antialiased;
+    @apply antialiased;
+    background:
+      radial-gradient(circle at top, rgba(195, 145, 78, 0.18), transparent 32%),
+      radial-gradient(circle at 82% 12%, rgba(54, 79, 58, 0.14), transparent 26%),
+      linear-gradient(180deg, rgba(252, 248, 242, 0.96), rgba(242, 233, 219, 0.98));
+    color: var(--color-umbra);
+    font-family: var(--font-ui);
   }
 }
 
 /* UTILITIES – organische Imperfektion: Papier & feines Korn */
+@layer components {
+  .bg-paper {
+    background:
+      linear-gradient(180deg, rgba(249, 243, 232, 0.94), rgba(238, 228, 214, 0.96));
+  }
+
+  .bg-paper-grain {
+    position: relative;
+    overflow: hidden;
+    border: 1px solid var(--color-stone);
+    background:
+      radial-gradient(circle at top, rgba(255, 255, 255, 0.76), transparent 54%),
+      linear-gradient(180deg, rgba(251, 245, 236, 0.96), rgba(239, 229, 214, 0.98));
+  }
+
+  .bg-paper-grain::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background-image:
+      radial-gradient(rgba(52, 38, 28, 0.038) 0.55px, transparent 0.55px),
+      radial-gradient(rgba(52, 38, 28, 0.022) 0.7px, transparent 0.7px);
+    background-position: 0 0, 14px 12px;
+    background-size: 8px 8px, 13px 13px;
+    mix-blend-mode: multiply;
+    opacity: 0.5;
+  }
+
+  .shadow-soft-grain {
+    box-shadow:
+      0 1px 1px rgba(20, 16, 11, 0.06),
+      0 24px 56px rgba(37, 27, 19, 0.12),
+      0 48px 120px rgba(37, 27, 19, 0.08);
+  }
+
+  .vignette::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    border-radius: inherit;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5), inset 0 -22px 80px rgba(58, 39, 25, 0.06);
+  }
+
+  .lightpoint {
+    position: absolute;
+    left: 50%;
+    top: -9rem;
+    width: 34rem;
+    height: 24rem;
+    transform: translateX(-50%);
+    border-radius: 9999px;
+    background:
+      radial-gradient(circle, rgba(229, 196, 126, 0.34), rgba(229, 196, 126, 0.08) 44%, transparent 72%);
+    filter: blur(22px);
+    opacity: 0.82;
+    pointer-events: none;
+  }
+
+  .text-smoke {
+    color: var(--color-smoke);
+  }
+
+  .text-forest {
+    color: var(--color-forest);
+  }
+
+  .border-stone {
+    border-color: var(--color-stone);
+  }
+
+  .input-mystic {
+    width: 100%;
+    border-radius: 1.35rem;
+    border: 1px solid var(--color-stone-strong);
+    background:
+      linear-gradient(180deg, rgba(255, 252, 246, 0.92), rgba(245, 236, 225, 0.94));
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.72),
+      0 8px 28px rgba(42, 29, 18, 0.05);
+    color: var(--color-umbra);
+    font-family: var(--font-ritual);
+    font-size: 1.08rem;
+    line-height: 1.7;
+    padding: 1rem 1.15rem;
+    transition: border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+  }
+
+  .input-mystic::placeholder {
+    color: rgba(109, 98, 88, 0.72);
+  }
+
+  .input-mystic:focus {
+    outline: none;
+    border-color: rgba(181, 139, 77, 0.52);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.86),
+      0 0 0 3px rgba(181, 139, 77, 0.1),
+      0 16px 32px rgba(42, 29, 18, 0.08);
+    transform: translateY(-1px);
+  }
+
+  .button-mystic {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9999px;
+    border: 1px solid rgba(103, 73, 42, 0.18);
+    background:
+      linear-gradient(135deg, rgba(62, 48, 38, 0.96), rgba(34, 54, 42, 0.96));
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.16),
+      0 12px 32px rgba(41, 29, 19, 0.16);
+    color: #f8f1e6;
+    font-family: var(--font-ritual);
+    font-size: 1rem;
+    letter-spacing: 0.05em;
+    padding: 0.85rem 1.4rem;
+  }
+
+  .button-mystic:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.18),
+      0 16px 36px rgba(41, 29, 19, 0.2);
+  }
+
+  .button-mystic:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+  }
+
+  .chat-bubble-user,
+  .chat-bubble-bot {
+    display: inline-block;
+    max-width: min(100%, 44rem);
+    padding: 1.05rem 1.2rem;
+    border-radius: 1.35rem;
+    white-space: pre-wrap;
+    line-height: 1.78;
+    text-align: left;
+    position: relative;
+    box-shadow:
+      0 12px 28px rgba(39, 27, 18, 0.08),
+      inset 0 1px 0 rgba(255, 255, 255, 0.42);
+  }
+
+  .chat-bubble-user {
+    border: 1px solid rgba(181, 139, 77, 0.18);
+    background:
+      linear-gradient(180deg, rgba(239, 225, 205, 0.88), rgba(230, 211, 188, 0.92));
+    color: #3e2d22;
+    font-family: var(--font-ui);
+  }
+
+  .chat-bubble-bot {
+    border: 1px solid rgba(48, 75, 59, 0.16);
+    background:
+      linear-gradient(180deg, rgba(254, 252, 247, 0.9), rgba(247, 239, 227, 0.98));
+    color: var(--color-umbra);
+    font-family: var(--font-ritual);
+    font-size: 1.08rem;
+  }
+
+  .chat-bubble-bot::before {
+    content: "";
+    position: absolute;
+    left: 0.9rem;
+    top: 1rem;
+    bottom: 1rem;
+    width: 1px;
+    background:
+      linear-gradient(180deg, transparent, rgba(181, 139, 77, 0.7), transparent);
+    opacity: 0.8;
+  }
+
+  .chat-bubble-bot {
+    padding-left: 1.55rem;
+  }
+
+  .sanctum-page {
+    position: relative;
+    min-height: 100vh;
+    background:
+      radial-gradient(circle at top, rgba(197, 155, 91, 0.22), transparent 28%),
+      radial-gradient(circle at 80% 14%, rgba(52, 78, 61, 0.14), transparent 24%),
+      linear-gradient(180deg, rgba(248, 242, 233, 0.98), rgba(237, 226, 209, 0.98));
+  }
+
+  .sanctum-shell {
+    position: relative;
+    width: 100%;
+    border-radius: 2rem;
+  }
+
+  .sanctum-panel {
+    position: relative;
+    overflow: hidden;
+    border-radius: 1.8rem;
+    border: 1px solid var(--color-stone);
+    background:
+      linear-gradient(180deg, rgba(255, 250, 243, 0.9), rgba(244, 234, 220, 0.95));
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.6),
+      0 20px 48px rgba(36, 25, 18, 0.1);
+  }
+
+  .sanctum-panel::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background-image:
+      linear-gradient(90deg, transparent 0%, rgba(181, 139, 77, 0.045) 50%, transparent 100%);
+    opacity: 0.72;
+  }
+
+  .kraftzentrum {
+    position: relative;
+    display: grid;
+    gap: 2rem;
+    justify-items: center;
+    padding: 2.5rem 1.5rem;
+  }
+
+  .seal-sanctum {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 12rem;
+    height: 12rem;
+  }
+
+  .seal-halo {
+    position: absolute;
+    inset: 0;
+    border-radius: 9999px;
+    background:
+      radial-gradient(circle, rgba(208, 170, 97, 0.28), rgba(208, 170, 97, 0.06) 46%, transparent 72%);
+    filter: blur(1px);
+  }
+
+  .seal-halo::before,
+  .seal-halo::after {
+    content: "";
+    position: absolute;
+    inset: 0.55rem;
+    border-radius: 9999px;
+    border: 1px solid rgba(181, 139, 77, 0.28);
+    animation: halo-drift 12s linear infinite;
+  }
+
+  .seal-halo::after {
+    inset: 1.15rem;
+    border-color: rgba(48, 75, 59, 0.16);
+    animation-duration: 18s;
+    animation-direction: reverse;
+  }
+
+  .seal-core {
+    position: relative;
+    z-index: 1;
+    width: 5.5rem;
+    height: 5.5rem;
+    object-fit: contain;
+    filter: drop-shadow(0 12px 22px rgba(51, 37, 22, 0.18));
+  }
+
+  .status-rune {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    border-radius: 9999px;
+    border: 1px solid rgba(181, 139, 77, 0.18);
+    background: rgba(255, 249, 240, 0.76);
+    color: var(--color-smoke);
+    font-family: var(--font-ui);
+    font-size: 0.74rem;
+    letter-spacing: 0.22em;
+    padding: 0.42rem 0.78rem;
+    text-transform: uppercase;
+  }
+
+  .flow-marker-row,
+  .frequency-line {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+  }
+
+  .flow-marker {
+    width: 0.4rem;
+    height: 0.4rem;
+    border-radius: 9999px;
+    background:
+      radial-gradient(circle, rgba(191, 155, 88, 0.96) 0%, rgba(191, 155, 88, 0.45) 55%, rgba(191, 155, 88, 0.12) 100%);
+    box-shadow: 0 0 16px rgba(191, 155, 88, 0.24);
+    animation: quiet-pulse 4.8s ease-in-out infinite;
+  }
+
+  .message-stream {
+    position: relative;
+    padding: 1.5rem;
+  }
+
+  .message-stream::before {
+    content: "";
+    position: absolute;
+    left: 2.1rem;
+    top: 2rem;
+    bottom: 2rem;
+    width: 1px;
+    background:
+      linear-gradient(180deg, transparent, rgba(181, 139, 77, 0.24), rgba(48, 75, 59, 0.18), transparent);
+    opacity: 0.72;
+  }
+
+  .ritual-compose {
+    position: relative;
+    border-radius: 1.7rem;
+    border: 1px solid rgba(91, 68, 47, 0.14);
+    background:
+      linear-gradient(180deg, rgba(255, 251, 244, 0.82), rgba(245, 235, 221, 0.92));
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.52),
+      0 14px 36px rgba(37, 27, 19, 0.08);
+    padding: 1rem;
+  }
+
+  .error-banner {
+    border: 1px solid rgba(168, 75, 57, 0.16);
+    background:
+      linear-gradient(180deg, rgba(255, 244, 241, 0.94), rgba(252, 234, 228, 0.96));
+    color: #8a3e31;
+  }
+}
+
 @layer utilities {
   /* Papierstruktur: feines „Deckblatt“ */
   .texture-paper {
@@ -50,4 +414,33 @@
   .calm { @apply transition-all duration-calm ease-out; }
   .fade-in { @apply animate-fade; }
   .rise-in { @apply animate-rise; }
+}
+
+@keyframes halo-drift {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes quiet-pulse {
+  0%,
+  100% {
+    transform: scale(0.85);
+    opacity: 0.4;
+  }
+  50% {
+    transform: scale(1.15);
+    opacity: 0.92;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flow-marker,
+  .seal-halo::before,
+  .seal-halo::after {
+    animation: none !important;
+  }
 }

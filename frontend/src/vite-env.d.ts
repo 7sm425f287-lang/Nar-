@@ -1,13 +1,13 @@
 /// <reference types="vite/client" />
 
-interface NiroPrinciplesResponse {
+interface MoerlinPrinciplesResponse {
 	ok: boolean
 	content?: string
 	error?: string
 }
 
 interface Window {
-	niroPrinciples?: {
-		getPrinciples: () => Promise<NiroPrinciplesResponse>
+	moerlinPrinciples?: {
+		getPrinciples: () => Promise<MoerlinPrinciplesResponse>
 	}
 }

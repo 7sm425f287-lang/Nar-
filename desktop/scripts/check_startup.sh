@@ -3,7 +3,7 @@ set -euo pipefail
 
 BACKEND_URL="http://127.0.0.1:8001"
 HEALTH_PATH="$BACKEND_URL/health"
-LOGFILE="$(cd "$(dirname "$0")/.." && pwd)/niro-electron.log"
+LOGFILE="$(cd "$(dirname "$0")/.." && pwd)/moerlin-electron.log"
 
 echo "Checking backend health: $HEALTH_PATH"
 if curl -sS --fail "$HEALTH_PATH" >/dev/null; then

@@ -57,7 +57,7 @@ export default function EditorPage() {
       }
       const model = editor.getModel()
       if (!model) return
-      const owner = 'narphi-editor'
+      const owner = 'moerlin-editor'
       if (!msg) {
         monaco.editor.setModelMarkers(model, owner, [])
         return

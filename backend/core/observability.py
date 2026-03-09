@@ -9,7 +9,7 @@ from contextvars import ContextVar
 from typing import Iterator, Optional
 
 
-logger = logging.getLogger("narphi.backend.observability")
+logger = logging.getLogger("moerlin.backend.observability")
 
 
 _request_id_var: ContextVar[Optional[str]] = ContextVar("request_id", default=None)
@@ -50,4 +50,3 @@ def increment(metric: str, **dimensions) -> None:
     key = ".".join([metric] + [f"{k}:{v}" for k, v in sorted(dimensions.items())])
     metrics[key] += 1
     logger.debug("metric metric=%s dims=%s", metric, dimensions)
-

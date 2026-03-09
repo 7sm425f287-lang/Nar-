@@ -10,7 +10,7 @@ export default function PrinciplesModal() {
     const dismissed = localStorage.getItem('principles.dismissed') === '1'
     if (dismissed) return
     setLoading(true)
-    window.niroPrinciples?.getPrinciples().then((res) => {
+    window.moerlinPrinciples?.getPrinciples().then((res) => {
       setLoading(false)
       if (res?.ok && res.content) {
         setContent(res.content)

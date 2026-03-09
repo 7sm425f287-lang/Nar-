@@ -1,6 +1,6 @@
-# Nar φ Local Dev Stack
+# Mφrlin Local Dev Stack
 
-End-to-end workspace for the Nar φ conversation stack (FastAPI backend + Vite/React frontend). The repo is organised for local work only; publishing is intentionally disabled.
+End-to-end workspace for the Mφrlin conversation stack (FastAPI backend + Vite/React frontend). The repo is organised for local work only; publishing is intentionally disabled.
 
 ## Quick Start
 

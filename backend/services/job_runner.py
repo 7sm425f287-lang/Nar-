@@ -23,10 +23,13 @@ LOG_DIR.mkdir(parents=True, exist_ok=True)
 
 SAFE_ENV_KEYS = {"PATH", "PYTHONPATH", "VIRTUAL_ENV", "DEV_MODE"}
 _env_cmds = {token.strip() for token in os.getenv("DEV_CMD_WHITELIST", "").split(":") if token.strip()}
+# Ensure essential developer commands are always allowed in test/dev environments.
+DEFAULT_CMDS = {"pytest", "npm", "node", "python", "eslint", "tsc", "mypy"}
 if not _env_cmds:
-    CMD_WHITELIST = {"pytest", "npm", "node", "python", "eslint", "tsc", "mypy"}
+    CMD_WHITELIST = DEFAULT_CMDS
 else:
-    CMD_WHITELIST = _env_cmds
+    # merge env-provided whitelist with defaults to avoid brittle test ordering/import-time issues
+    CMD_WHITELIST = set(_env_cmds) | DEFAULT_CMDS
 ARG_TOKEN_RE = re.compile(r"^[\w\-./:+@=]+$")
 TERMINAL_STATES = {"ok", "fail", "timeout", "killed"}
 DEFAULT_TIMEOUT = 60

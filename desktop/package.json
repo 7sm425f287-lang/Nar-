@@ -1,14 +1,14 @@
 {
-  "name": "niro-chat-desktop",
+  "name": "moerlin-desktop",
   "version": "0.1.0",
   "private": true,
   "main": "dist/electron-main.js",
   "scripts": {
-    "dev": "concurrently -k -n FRONTEND,BACKEND,ELECTRON -c cyan,magenta,green \"cd ../frontend && npm run dev\" \"./scripts/dev-backend.sh\" \"wait-on tcp:5173 && ELECTRON_RUN_AS_NODE=0 electron -r ts-node/register/transpile-only ./electron-main.ts\"",
-    "start": "npx electron dist/electron-main.js",
+    "dev": "concurrently -k -n FRONTEND,ELECTRON -c cyan,green \"cd ../frontend && npm run dev\" \"wait-on tcp:5173 && env -u ELECTRON_RUN_AS_NODE electron -r ts-node/register/transpile-only ./electron-main.ts\"",
+    "start": "env -u ELECTRON_RUN_AS_NODE npx electron dist/electron-main.js",
     "build": "rimraf dist && tsc && cp -R icons dist/icons",
-    "pack": "npm run build && electron-builder --dir",
-    "dist": "npm run build && electron-builder"
+    "pack": "npm --prefix ../frontend run build && npm run build && electron-builder --dir",
+    "dist": "npm --prefix ../frontend run build && npm run build && electron-builder"
   },
   "devDependencies": {
     "@types/node": "^20.11.30",
@@ -23,13 +23,67 @@
   },
   "dependencies": {},
   "build": {
-    "appId": "dev.niro.chat",
-    "productName": "Niro Chat",
+    "appId": "dev.moerlin.desktop",
+    "productName": "Mφrlin",
     "files": ["dist/**"],
+    "afterPack": "./scripts/after-pack.js",
+    "extraResources": [
+      {
+        "from": "../frontend/dist",
+        "to": "runtime/frontend/dist",
+        "filter": ["**/*"]
+      },
+      {
+        "from": "../backend",
+        "to": "runtime/backend",
+        "filter": [
+          "app.py",
+          "__init__.py",
+          "app/**/*",
+          "routes/**/*",
+          "services/**/*",
+          "core/**/*",
+          "policy/**/*",
+          "requirements.txt",
+          ".env.cloud",
+          ".venv/pyvenv.cfg",
+          ".venv/bin/python",
+          ".venv/bin/python3.12",
+          ".venv/lib/**/*",
+          "!**/__pycache__/**",
+          "!**/*.pyc",
+          "!**/.pytest_cache/**",
+          "!**/*.bak*",
+          "!**/.env.local",
+          "!**/.uvicorn.*",
+          "!logs/**",
+          "!tests/**",
+          "!app/openai.chatgpt-0.4.21-darwin-x64.vsix",
+          "!.venv/lib/python3.12/site-packages/pip/**",
+          "!.venv/lib/python3.12/site-packages/pip-*.dist-info/**",
+          "!.venv/lib/python3.12/site-packages/setuptools/**",
+          "!.venv/lib/python3.12/site-packages/setuptools-*.dist-info/**",
+          "!.venv/lib/python3.12/site-packages/wheel/**",
+          "!.venv/lib/python3.12/site-packages/wheel-*.dist-info/**",
+          "!.venv/lib/python3.12/site-packages/pkg_resources/**",
+          "!**/.DS_Store"
+        ]
+      },
+      {
+        "from": "../system",
+        "to": "runtime/system",
+        "filter": ["principles.md"]
+      },
+      {
+        "from": "../memory/Erkenntnisse/docs",
+        "to": "runtime/memory/Erkenntnisse/docs",
+        "filter": ["**/*"]
+      }
+    ],
     "mac": {
       "category": "public.app-category.productivity",
       "target": "dmg",
-      "icon": "icons/app.png"
+      "icon": "icons/narphi-icon.icns"
     },
     "win": {
       "target": "nsis",

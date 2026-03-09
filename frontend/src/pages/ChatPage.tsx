@@ -188,43 +188,86 @@ export default function ChatPage() {
   }, [status])
 
   const showRetry = status === 'error' && Boolean(lastPrompt)
+  const hasMessages = messages.length > 0
+  const flowMarkerCount = status === 'receiving' ? 7 : 5
+  const statusTone =
+    status === 'receiving'
+      ? 'Resonanz im Fluss'
+      : status === 'sending'
+        ? 'Impuls wird geordnet'
+        : hasMessages
+          ? 'Gespräch im ruhigen Takt'
+          : 'Raum für einen ersten Impuls'
 
   return (
-    <div className="min-h-screen flex items-start justify-center bg-paper p-6">
-      <div className="w-full max-w-3xl bg-paper-grain shadow-soft-grain rounded-2xl p-6 relative vignette">
+    <div className="sanctum-page px-4 py-6 sm:px-6 sm:py-8">
+      <div className="mx-auto w-full max-w-5xl">
+        <div className="sanctum-shell bg-paper-grain shadow-soft-grain vignette rounded-[2rem] p-5 sm:p-8">
         <div className="lightpoint" aria-hidden="true"></div>
-        <header className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-3">
-            <img src="/assets/seal.svg" alt="seal" width="44" height="44" aria-hidden="true" />
+        <header className="mb-6 flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex items-start gap-4">
+            <div className="seal-sanctum hidden shrink-0 sm:grid" aria-hidden="true">
+              <div className="seal-halo"></div>
+              <img src="/assets/seal.svg" alt="seal" className="seal-core" />
+            </div>
             <div>
-              <h1 className="text-3xl font-serif">Nar φ</h1>
-              <p className="text-sm text-smoke">Ein ruhiger Ort für Forschung und Gespräch</p>
+              <div className="mb-3 flow-marker-row" aria-hidden="true">
+                {Array.from({ length: flowMarkerCount }).map((_, index) => (
+                  <span
+                    key={`header-marker-${index}`}
+                    className="flow-marker"
+                    style={{ animationDelay: `${index * 180}ms` }}
+                  />
+                ))}
+              </div>
+              <div className="mb-2 text-[11px] uppercase tracking-[0.34em] text-smoke">
+                kunzt.freiheit interface
+              </div>
+              <h1 className="text-4xl leading-none sm:text-6xl">Mφrlin</h1>
+              <p className="mt-3 max-w-2xl text-base leading-8 text-smoke sm:text-lg">
+                Ein stilles Kraftzentrum für Sprache, Ordnung und Resonanz. Weniger Oberfläche, mehr
+                innere Frequenz.
+              </p>
             </div>
           </div>
-          <div className="flex items-center gap-3 text-sm">
+          <div className="flex flex-col items-start gap-3 sm:items-end">
+            <div className="status-rune">
+              <span>{statusLabel}</span>
+            </div>
             {latency !== null && (
-              <span className="rounded-full border border-forest/40 bg-forest/10 px-3 py-1 text-xs text-forest">
-                Latenz {latency} ms
+              <span className="rounded-full border border-forest/25 bg-forest/10 px-3 py-1 text-[11px] uppercase tracking-[0.22em] text-forest">
+                Latenz {latency} ms
               </span>
             )}
-            <nav className="flex gap-3 text-sm">
-              <Link to="/editor" className="text-forest hover:underline transition-soft">
+            <nav className="flex gap-4 text-sm text-forest/90">
+              <Link to="/editor" className="transition-soft hover:underline">
                 Editor
               </Link>
-              <Link to="/chronik" className="text-forest hover:underline transition-soft">
+              <Link to="/chronik" className="transition-soft hover:underline">
                 Chronik
               </Link>
-              <Link to="/dev" className="text-forest hover:underline transition-soft">
+              <Link to="/dev" className="transition-soft hover:underline">
                 Dev
               </Link>
             </nav>
           </div>
         </header>
 
-        <div className="mb-3 text-xs uppercase tracking-wide text-smoke">{statusLabel}</div>
+        <div className="mb-4 flex items-center justify-between gap-4">
+          <div className="text-[11px] uppercase tracking-[0.3em] text-smoke">{statusTone}</div>
+          <div className="frequency-line" aria-hidden="true">
+            {Array.from({ length: flowMarkerCount }).map((_, index) => (
+              <span
+                key={`status-marker-${index}`}
+                className="flow-marker"
+                style={{ animationDelay: `${index * 120}ms` }}
+              />
+            ))}
+          </div>
+        </div>
 
         {error && (
-          <div className="mb-3 space-y-2 rounded border border-red-100 bg-red-50 p-3 text-red-700">
+          <div className="error-banner mb-5 space-y-2 rounded-[1.4rem] p-4">
             <div>{error}</div>
             {lastRequestId && <div className="text-xs text-smoke">Request-ID: {lastRequestId}</div>}
             {showRetry && (
@@ -239,21 +282,85 @@ export default function ChatPage() {
           </div>
         )}
 
-        <main className="min-h-[260px] border border-stone rounded-lg p-4 mb-4 bg-white">
-          <div className="space-y-3">
-            {messages.map((message) => (
-              <div key={message.id} className={message.role === 'user' ? 'text-right' : 'text-left'}>
-                <div className={message.role === 'user' ? 'chat-bubble-user' : 'chat-bubble-bot'}>{message.text}</div>
+        <main className={`sanctum-panel mb-6 ${hasMessages ? 'min-h-[360px]' : 'min-h-[420px]'}`}>
+          {!hasMessages ? (
+            <div className="kraftzentrum">
+              <div className="seal-sanctum" aria-hidden="true">
+                <div className="seal-halo"></div>
+                <img src="/assets/seal.svg" alt="seal" className="seal-core" />
               </div>
-            ))}
-            {status === 'sending' && <div className="text-sm text-smoke">Senden…</div>}
-            {status === 'receiving' && <div className="text-sm text-smoke">Empfangen…</div>}
-          </div>
+              <div className="max-w-2xl text-center">
+                <div className="mb-4 status-rune">Sprach- &amp; Flow-DNA</div>
+                <h2 className="text-3xl leading-tight sm:text-[3.3rem]">
+                  Ein Raum, der nicht drängt, sondern bündelt.
+                </h2>
+                <p className="mt-5 text-lg leading-8 text-smoke">
+                  Lege einen Gedanken in die Mitte. Mφrlin antwortet nicht als hektische Maschine,
+                  sondern als ruhiger Resonanzraum für Form, Bedeutung und Richtung.
+                </p>
+                <div className="mt-7 frequency-line" aria-hidden="true">
+                  {Array.from({ length: 9 }).map((_, index) => (
+                    <span
+                      key={`hero-marker-${index}`}
+                      className="flow-marker"
+                      style={{ animationDelay: `${index * 160}ms` }}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="message-stream">
+              <div className="mb-5 flex items-center justify-between gap-4">
+                <div className="text-[11px] uppercase tracking-[0.3em] text-smoke">
+                  Gesprächsfluss
+                </div>
+                <div className="frequency-line" aria-hidden="true">
+                  {Array.from({ length: 6 }).map((_, index) => (
+                    <span
+                      key={`stream-marker-${index}`}
+                      className="flow-marker"
+                      style={{ animationDelay: `${index * 140}ms` }}
+                    />
+                  ))}
+                </div>
+              </div>
+              <div className="space-y-4">
+                {messages.map((message) => (
+                  <div key={message.id} className={message.role === 'user' ? 'text-right' : 'text-left'}>
+                    <div className="mb-2 text-[11px] uppercase tracking-[0.24em] text-smoke">
+                      {message.role === 'user' ? 'Impuls' : 'Resonanz'}
+                    </div>
+                    <div className={message.role === 'user' ? 'chat-bubble-user' : 'chat-bubble-bot'}>
+                      {message.text}
+                    </div>
+                  </div>
+                ))}
+                {status === 'sending' && (
+                  <div className="pt-2 text-sm text-smoke">Der Impuls wird geordnet…</div>
+                )}
+                {status === 'receiving' && (
+                  <div className="flex items-center gap-3 pt-2 text-sm text-smoke">
+                    <span>Die Resonanz formt sich…</span>
+                    <div className="frequency-line" aria-hidden="true">
+                      {Array.from({ length: 4 }).map((_, index) => (
+                        <span
+                          key={`receiving-marker-${index}`}
+                          className="flow-marker"
+                          style={{ animationDelay: `${index * 120}ms` }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </main>
 
-        <form className="flex flex-col gap-3 sm:flex-row" onSubmit={send}>
-          <div className="flex-1">
-            <input
+        <form className="grid gap-3" onSubmit={send}>
+          <div className="ritual-compose">
+            <textarea
               value={input}
               onChange={(event) => setInput(event.target.value)}
               onKeyDown={(event) => {
@@ -262,27 +369,33 @@ export default function ChatPage() {
                   send()
                 }
               }}
-              className="w-full input-mystic"
-              placeholder="Schreibe eine Nachricht…"
+              className="input-mystic min-h-[118px] resize-none"
+              placeholder="Lege hier den ersten Impuls in die Mitte…"
               aria-label="message"
               disabled={isBusy}
             />
-          </div>
-          <div className="flex flex-shrink-0 items-center gap-2">
-            <button type="submit" className="button-mystic transition-soft" disabled={isBusy}>
-              {isBusy ? 'Sende…' : 'Senden'}
-            </button>
-            <button
-              type="button"
-              onClick={handleAbort}
-              className="rounded-full border border-stone px-3 py-2 text-sm text-smoke transition-soft hover:border-forest hover:text-forest disabled:opacity-50"
-              disabled={!isBusy}
-            >
-              Stop
-            </button>
+            <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="text-sm text-smoke">
+                Enter sendet. Shift + Enter oeffnet eine neue Zeile.
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleAbort}
+                  className="rounded-full border border-stone px-4 py-2 text-sm text-smoke transition-soft hover:border-forest hover:text-forest disabled:opacity-50"
+                  disabled={!isBusy}
+                >
+                  Stillstellen
+                </button>
+                <button type="submit" className="button-mystic transition-soft" disabled={isBusy}>
+                  {isBusy ? 'Im Fluss…' : 'Impuls senden'}
+                </button>
+              </div>
+            </div>
           </div>
         </form>
       </div>
+    </div>
     </div>
   )
 }

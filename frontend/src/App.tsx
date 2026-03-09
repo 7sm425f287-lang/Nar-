@@ -2,6 +2,8 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { BrowserRouter, HashRouter, Route, Routes, useLocation } from 'react-router-dom'
 
 import ModuleSidebar from './components/ModuleSidebar'
+import React, { Suspense } from 'react'
+const SplineBackground = React.lazy(() => import('./components/SplineBackground'))
 import ChatPage from './pages/ChatPage'
 import ChronikPage from './pages/ChronikPage'
 import DevConsolePage from './pages/DevConsolePage'
@@ -46,6 +48,9 @@ export default function App() {
         <PrinciplesModal />
         <div className="app-shell">
           <ModuleSidebar />
+          <Suspense fallback={null}>
+            <SplineBackground />
+          </Suspense>
           <div className="module-content">
             <AnimatedRoutes />
           </div>

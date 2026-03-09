@@ -314,7 +314,8 @@ async def fs_read(path: str) -> FileReadResponse:
     if not file_path.exists() or not file_path.is_file():
         raise HTTPException(status_code=404, detail="file not found")
     try:
-        content = file_path.read_text(encoding="utf-8")
+        # perform blocking file IO off the event loop
+        content = await asyncio.to_thread(file_path.read_text, "utf-8")
     except UnicodeDecodeError as exc:
         raise HTTPException(status_code=415, detail="file is not UTF-8 text") from exc
 
@@ -327,9 +328,9 @@ async def fs_write(payload: FileWriteRequest) -> FileWriteResponse:
     file_path = _resolve_fs_path(payload.path)
     if file_path.is_dir():
         raise HTTPException(status_code=400, detail="path points to a directory")
-
-    file_path.parent.mkdir(parents=True, exist_ok=True)
-    bytes_written = file_path.write_text(payload.content, encoding="utf-8")
+    # run blocking filesystem operations in a thread to avoid blocking the event loop
+    await asyncio.to_thread(lambda: file_path.parent.mkdir(parents=True, exist_ok=True))
+    bytes_written = await asyncio.to_thread(file_path.write_text, payload.content, "utf-8")
     relative_path = str(file_path.relative_to(REPO_ROOT))
     logger.info("fs_write path=%s bytes=%s", relative_path, bytes_written)
     return FileWriteResponse(path=relative_path, bytes_written=bytes_written)
@@ -337,5 +338,6 @@ async def fs_write(payload: FileWriteRequest) -> FileWriteResponse:
 
 @app.get("/api/fs/list", response_model=FileListResponse)
 async def fs_list(limit: int = 20) -> FileListResponse:
-    items = _collect_recent_files(limit)
+    # _collect_recent_files performs filesystem traversal and stat calls; run in thread
+    items = await asyncio.to_thread(_collect_recent_files, limit)
     return FileListResponse(items=items)

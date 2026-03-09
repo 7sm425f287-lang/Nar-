@@ -380,7 +380,6 @@ export default function ChatPage() {
                   {messages.map((message, index) => (
                     <motion.div
                       key={message.id}
-                      layout
                       initial={{ opacity: 0, y: 16 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ duration: 0.28, ease, delay: Math.min(index, 6) * 0.04 }}
@@ -411,7 +410,6 @@ export default function ChatPage() {
         </main>
 
         <motion.form
-          layout
           transition={{ duration: 0.28, ease }}
           className="launcher-compose-shell"
           onSubmit={send}

@@ -1,4 +1,5 @@
 import { AnimatePresence, motion } from 'framer-motion'
+import { memo } from 'react'
 
 import { type AgentId, useAgentNode } from '@/lib/agent-runtime'
 
@@ -8,7 +9,7 @@ type AgentFieldProps = {
   notice?: string | null
 }
 
-export default function AgentField({ agentId, compact = false, notice }: AgentFieldProps) {
+function AgentField({ agentId, compact = false, notice }: AgentFieldProps) {
   const { agent, principles } = useAgentNode(agentId)
   const constraintLimit = compact ? 2 : 3
 
@@ -62,3 +63,4 @@ export default function AgentField({ agentId, compact = false, notice }: AgentFi
     </section>
   )
 }
+export default memo(AgentField)

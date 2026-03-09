@@ -48,9 +48,10 @@
     inset: -18%;
     pointer-events: none;
     z-index: -2;
-    filter: blur(84px);
+    /* reduce extreme blur and hint GPU compositing */
+    filter: blur(32px);
     transform: translate3d(0, 0, 0);
-    will-change: transform;
+    will-change: transform, filter;
   }
 
   body::before {
@@ -84,8 +85,11 @@
     overflow: hidden;
     border: 1px solid var(--color-stone);
     background: var(--glass-surface);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
+    /* lighter blur + GPU composite hint */
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    will-change: transform, filter;
+    transform: translateZ(0);
   }
 
   .bg-paper-grain::after {
@@ -136,9 +140,11 @@
     border-radius: 9999px;
     pointer-events: none;
     opacity: 0.82;
-    filter: blur(30px);
+    filter: blur(12px);
     background:
       radial-gradient(circle, rgba(255, 211, 138, 0.22), rgba(255, 211, 138, 0.08) 36%, transparent 66%);
+    will-change: transform, filter;
+    transform: translateZ(0);
   }
 
   .text-smoke {
@@ -172,14 +178,28 @@
     border-radius: 9999px;
     border: 1px solid rgba(255, 255, 255, 0.08);
     background: rgba(12, 18, 33, 0.46);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
     color: var(--color-smoke);
     transition:
       color 220ms var(--ease-soft),
       background-color 220ms var(--ease-soft),
       border-color 220ms var(--ease-soft),
       transform 220ms var(--ease-soft);
+  }
+
+  /* hint GPU compositing for interactive UI elements */
+  .nav-pill,
+  .secondary-button,
+  .latency-pill,
+  .button-mystic,
+  .input-mystic,
+  .sanctum-panel,
+  .matrix-card,
+  .matrix-card-glow,
+  .seal-halo {
+    will-change: transform, filter;
+    transform: translateZ(0);
   }
 
   .nav-pill {
@@ -230,8 +250,8 @@
     border: 1px solid rgba(255, 255, 255, 0.08);
     background:
       linear-gradient(180deg, rgba(10, 17, 31, 0.72), rgba(8, 13, 24, 0.58));
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
     color: var(--color-umbra);
     font-family: var(--font-ui);
     font-size: 1rem;
@@ -366,7 +386,7 @@
     border-radius: 9999px;
     background:
       radial-gradient(circle, rgba(255, 208, 132, 0.22), rgba(120, 150, 255, 0.08) 52%, transparent 74%);
-    filter: blur(6px);
+    filter: blur(4px);
     animation: float-slow 14s ease-in-out infinite;
   }
 

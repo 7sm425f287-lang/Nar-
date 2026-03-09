@@ -88,8 +88,30 @@ def test_dev_job_creates_log(tmp_path, monkeypatch):
 Testrun: `pytest backend/tests/test_dev_job_integration.py -q`
 
 Hinweise / Best Practices
-- Verwende immer `_resolve_fs_path()` (in `backend/app.py`), wenn Tests oder Code Dateien modifizieren — die Funktion schützt vor Pfaden außerhalb des Repos und vor `memory/`.
-- Tests laufen zuverlässig, wenn `NIRO_ENV=test` gesetzt ist (dann wird meist der `mock`-Provider verwendet).
-- Verwende `X-Request-ID` zur Korrelation zwischen Server-Logs und Job-Runner-Logs.
 
+Wenn du willst, lege ich automatisch Beispieldateien (`acme_provider.py`, Tests) an und commite sie. Soll ich das tun? (ja/nein)
 Wenn du willst, lege ich automatisch Beispieldateien (`acme_provider.py`, Tests) an und commite sie. Soll ich das tun? (ja/nein) 
+
+--
+Gesetz: UI-Performance & Laden
+
+1) Spline Lazy-Loading:
+- Lade `@splinetool/react-spline` nur on-demand. Verwende `React.lazy` / `Suspense` oder dynamischen Import.
+- Die 3D-Szene darf das Initial-Render nicht blockieren; first-paint der UI hat Vorrang.
+
+2) GPU-Compositing für sakrale UI-Rendering-Flächen:
+- Für Layer mit `backdrop-filter`, großen `box-shadow`/Glow-Effekten oder starken Transparenzen setze `will-change: transform, filter` und `transform: translateZ(0)`.
+- Reduziere `backdrop-filter` / `filter: blur()` Radien auf ein moderates Maß (z. B. ≤ 12px) für große Flächen; lokale Details können höhere Werte verwenden.
+
+3) React-Rendering:
+- Memoisiere wiederholte Karten/Listen-Komponenten mit `React.memo` und kontrolliere List-Renderings mit `useMemo`/`useCallback`.
+- Vermeide globale State-Änderungen, die alle 24 Karten neu rendern.
+
+4) Framer-Motion:
+- Vermeide das `layout`-Attribut auf großen Listen / Sidebar-Containern. Nutze `x`, `y`, `scale`, `opacity` für Transform-only Animationen.
+
+5) Backend-Asynchronität:
+- Vermeide blockierende Dateisystem- oder CPU-Operationen im Event-Loop. Nutze `asyncio.to_thread` oder Background-Tasks.
+
+Diese Regeln sind verbindlich für alle Agenten-Vorschläge und Code-Beispiele in diesem Repo.
+
